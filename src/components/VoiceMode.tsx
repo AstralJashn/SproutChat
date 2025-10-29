@@ -34,7 +34,7 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(12)].map((_, i) => ({
+    return [...Array(8)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
