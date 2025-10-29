@@ -23,6 +23,10 @@ export function VoiceMode({
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [micAudioLevel, setMicAudioLevel] = useState(0);
+
+  useEffect(() => {
+    console.log('[VoiceMode] State changed:', { isProcessing, isSpeaking, isListening });
+  }, [isProcessing, isSpeaking, isListening]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heartRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
