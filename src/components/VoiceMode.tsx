@@ -107,10 +107,17 @@ export function VoiceMode({
       }
 
       silenceTimerRef.current = setTimeout(() => {
+        console.log('[VoiceMode] Silence timer fired', {
+          hasTranscript: !!lastTranscriptRef.current.trim(),
+          isProcessingTranscript: isProcessingTranscriptRef.current,
+          hasSubmittedTranscript: hasSubmittedTranscriptRef.current
+        });
         if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+          console.log('[VoiceMode] ✓ Submitting transcript:', lastTranscriptRef.current.substring(0, 50));
           isProcessingTranscriptRef.current = true;
           hasSubmittedTranscriptRef.current = true;
           recognition.stop();
+          console.log('[VoiceMode] Calling onTranscript callback...');
           onTranscript(lastTranscriptRef.current);
           setTranscript('');
         }
@@ -542,7 +549,11 @@ export function VoiceMode({
             <Mic className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-cyan-400 animate-pulse" />
           ) : null}
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
-            {isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isListening ? 'Listening' : 'Ready'}
+            {(() => {
+              const status = isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isListening ? 'Listening' : 'Ready';
+              console.log('[VoiceMode RENDER] Status:', status, { isSpeaking, isProcessing, isListening });
+              return status;
+            })()}
           </h3>
         </div>
 
