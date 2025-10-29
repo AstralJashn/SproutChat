@@ -26,6 +26,9 @@ export function VoiceMode({
 
   useEffect(() => {
     console.log('[VoiceMode] State changed:', { isProcessing, isSpeaking, isListening });
+    if (isProcessing || isSpeaking) {
+      setIsListening(false);
+    }
   }, [isProcessing, isSpeaking, isListening]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heartRef = useRef<HTMLDivElement>(null);
@@ -107,7 +110,6 @@ export function VoiceMode({
           isProcessingTranscriptRef.current = true;
           hasSubmittedTranscriptRef.current = true;
           recognition.stop();
-          setIsListening(false);
           onTranscript(lastTranscriptRef.current);
           setTranscript('');
         }
