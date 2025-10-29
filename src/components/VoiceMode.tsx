@@ -34,15 +34,25 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(6)].map((_, i) => ({
-      key: `spark-${i}`,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      duration: 4 + Math.random() * 4,
-      delay: Math.random() * 3,
-      sparkX: `${(Math.random() - 0.5) * 200}px`,
-      sparkY: `${(Math.random() - 0.5) * 200}px`,
-    }));
+    return [...Array(8)].map((_, i) => {
+      const angle = (i / 8) * Math.PI * 2;
+      const startRadius = 15;
+      const endRadius = 45;
+      const startX = 50 + Math.cos(angle) * startRadius;
+      const startY = 50 + Math.sin(angle) * startRadius;
+      const flowX = Math.cos(angle) * endRadius;
+      const flowY = Math.sin(angle) * endRadius;
+
+      return {
+        key: `spark-${i}`,
+        left: `${startX}%`,
+        top: `${startY}%`,
+        duration: 3 + Math.random() * 2,
+        delay: Math.random() * 3,
+        sparkX: `${flowX}vw`,
+        sparkY: `${flowY}vh`,
+      };
+    });
   }, []);
 
   const backgroundEmbers = useMemo(() => {
@@ -348,14 +358,14 @@ export function VoiceMode({
       </div>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {backgroundSparks.slice(0, 3).map((spark) => (
+        {backgroundSparks.map((spark) => (
           <div
             key={spark.key}
-            className="absolute w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-300"
+            className="absolute w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gradient-to-r from-emerald-300 to-cyan-300"
             style={{
               left: spark.left,
               top: spark.top,
-              animation: `spark-float ${spark.duration}s ease-in-out ${spark.delay}s infinite`,
+              animation: `spark-float ${spark.duration}s ease-out ${spark.delay}s infinite`,
               '--spark-x': spark.sparkX,
               '--spark-y': spark.sparkY,
             } as any}
