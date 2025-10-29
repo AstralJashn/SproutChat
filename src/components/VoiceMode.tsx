@@ -334,67 +334,31 @@ export function VoiceMode({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/8 via-cyan-500/8 to-emerald-500/8 animate-gradient-xy"></div>
-      <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/6 via-emerald-500/6 to-cyan-500/6 animate-gradient-xy" style={{ animationDelay: '4s' }}></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/8 via-cyan-500/8 to-emerald-500/8"></div>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-900/20 via-transparent to-transparent"></div>
 
-      <div className="absolute inset-0">
-        <div className="absolute top-20 left-10 w-[600px] h-[600px] bg-gradient-to-br from-emerald-500/25 to-emerald-600/10 rounded-full filter blur-[140px] animate-float" style={{ animationDelay: '0s' }}></div>
-        <div className="absolute top-40 right-10 w-[600px] h-[600px] bg-gradient-to-br from-cyan-500/25 to-cyan-600/10 rounded-full filter blur-[140px] animate-float-reverse" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute bottom-20 left-1/2 w-[550px] h-[550px] bg-gradient-to-br from-emerald-400/22 to-cyan-400/12 rounded-full filter blur-[130px] animate-float" style={{ animationDelay: '3s' }}></div>
-        <div className="absolute bottom-40 right-1/4 w-[500px] h-[500px] bg-gradient-to-br from-cyan-400/22 to-emerald-400/12 rounded-full filter blur-[120px] animate-float-reverse" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute inset-0 hidden sm:block">
+        <div className="absolute top-20 left-10 w-[600px] h-[600px] bg-gradient-to-br from-emerald-500/20 to-emerald-600/8 rounded-full filter blur-[100px] animate-float" style={{ animationDelay: '0s' }}></div>
+        <div className="absolute top-40 right-10 w-[600px] h-[600px] bg-gradient-to-br from-cyan-500/20 to-cyan-600/8 rounded-full filter blur-[100px] animate-float-reverse" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="absolute inset-0">
-        <div className="absolute top-1/3 left-1/4 w-[350px] h-[350px] bg-emerald-400/18 rounded-full filter blur-[100px] animate-pulse-slow" style={{ animationDelay: '1.5s' }}></div>
-        <div className="absolute top-2/3 right-1/3 w-[300px] h-[300px] bg-cyan-400/18 rounded-full filter blur-[90px] animate-pulse-slow" style={{ animationDelay: '3.5s' }}></div>
-        <div className="absolute top-1/2 left-2/3 w-[280px] h-[280px] bg-gradient-to-br from-emerald-300/15 to-cyan-300/15 rounded-full filter blur-[80px] animate-float" style={{ animationDelay: '5s' }}></div>
+      <div className="absolute inset-0 sm:hidden">
+        <div className="absolute top-20 left-5 w-[300px] h-[300px] bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 rounded-full filter blur-[60px]" style={{ animationDelay: '0s' }}></div>
+        <div className="absolute top-40 right-5 w-[300px] h-[300px] bg-gradient-to-br from-cyan-500/15 to-cyan-600/5 rounded-full filter blur-[60px]" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {backgroundSparks.map((spark) => (
+      <div className="absolute inset-0 pointer-events-none overflow-hidden hidden md:block">
+        {backgroundSparks.slice(0, 3).map((spark) => (
           <div
             key={spark.key}
-            className="absolute w-1.5 h-1.5 rounded-full bg-gradient-to-r from-emerald-300 to-cyan-300 shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+            className="absolute w-1.5 h-1.5 rounded-full bg-emerald-300"
             style={{
               left: spark.left,
               top: spark.top,
               animation: `spark-float ${spark.duration}s ease-in-out ${spark.delay}s infinite`,
               '--spark-x': spark.sparkX,
               '--spark-y': spark.sparkY,
-              willChange: 'transform, opacity',
             } as any}
-          />
-        ))}
-      </div>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {backgroundEmbers.map((ember) => (
-          <div
-            key={ember.key}
-            className="absolute w-1 h-1 rounded-full bg-gradient-to-t from-emerald-400 to-cyan-400 shadow-[0_0_6px_rgba(16,185,129,0.9)]"
-            style={{
-              left: ember.left,
-              bottom: '10%',
-              animation: `ember-drift ${ember.duration}s linear ${ember.delay}s infinite`,
-              '--drift-x': ember.driftX,
-              willChange: 'transform, opacity',
-            } as any}
-          />
-        ))}
-      </div>
-
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {backgroundHeartbeats.map((heartbeat) => (
-          <div
-            key={heartbeat.key}
-            className="absolute w-3 h-3 rounded-full bg-emerald-400/30 blur-sm animate-heartbeat-pulse"
-            style={{
-              left: heartbeat.left,
-              top: heartbeat.top,
-              animationDelay: heartbeat.delay,
-              willChange: 'transform, opacity',
-            }}
           />
         ))}
       </div>
@@ -406,7 +370,7 @@ export function VoiceMode({
           e.stopPropagation();
           onClose();
         }}
-        className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors z-50 pointer-events-auto bg-slate-900/50 backdrop-blur-sm rounded-full p-2 hover:bg-slate-800/80"
+        className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors z-50 pointer-events-auto bg-slate-900/70 rounded-full p-2 hover:bg-slate-800/90"
       >
         <X className="w-6 h-6" />
       </button>
@@ -425,7 +389,7 @@ export function VoiceMode({
             ref={canvasRef}
             width={700}
             height={700}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 sm:scale-90 md:scale-100"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 sm:scale-90 md:scale-100 hidden sm:block"
           />
 
           <div
@@ -437,7 +401,7 @@ export function VoiceMode({
               height="200"
               viewBox="0 0 200 200"
               className={`w-32 h-32 sm:w-40 sm:h-40 md:w-[200px] md:h-[200px] ${
-                isSpeaking || isListening ? 'drop-shadow-[0_0_30px_rgba(16,185,129,1)] sm:drop-shadow-[0_0_40px_rgba(16,185,129,1)] md:drop-shadow-[0_0_50px_rgba(16,185,129,1)]' : 'drop-shadow-[0_0_15px_rgba(100,116,139,0.6)] sm:drop-shadow-[0_0_20px_rgba(100,116,139,0.6)] md:drop-shadow-[0_0_25px_rgba(100,116,139,0.6)]'
+                isSpeaking || isListening ? 'drop-shadow-[0_0_20px_rgba(16,185,129,0.8)] sm:drop-shadow-[0_0_30px_rgba(16,185,129,0.9)] md:drop-shadow-[0_0_40px_rgba(16,185,129,1)]' : 'drop-shadow-[0_0_10px_rgba(100,116,139,0.5)] sm:drop-shadow-[0_0_15px_rgba(100,116,139,0.6)] md:drop-shadow-[0_0_20px_rgba(100,116,139,0.6)]'
               }`}
             >
               <defs>
