@@ -550,7 +550,7 @@ export function VoiceMode({
           </div>
         </div>
 
-        <div className="absolute bottom-16 sm:bottom-20 md:bottom-24 left-0 right-0 flex flex-col items-center">
+        <div className="absolute bottom-8 sm:bottom-12 md:bottom-16 left-0 right-0 flex flex-col items-center">
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-5 md:mb-6">
           {isSpeaking ? (
             <Volume2 className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-emerald-400 animate-pulse" />
