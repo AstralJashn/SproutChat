@@ -955,25 +955,25 @@ function App() {
         <div className="w-full h-full">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col px-4 sm:px-4 py-3 sm:py-6 max-w-2xl mx-auto overflow-y-auto pt-safe">
-              <div className="flex flex-col min-h-0 pt-8 sm:pt-4">
-                <div className="text-center mb-3 sm:mb-8">
-                  <div className="flex justify-center mb-2 sm:mb-4">
+              <div className="flex flex-col min-h-0 pt-6 sm:pt-4">
+                <div className="text-center mb-2 sm:mb-8">
+                  <div className="flex justify-center mb-1 sm:mb-4">
                     <img
                       src="/SproutChatLogo-ezgif.com-gif-maker.svg"
                       alt="SproutChat Logo"
-                      className="w-24 h-24 sm:w-36 sm:h-36 md:w-44 md:h-44 animate-float drop-shadow-2xl"
+                      className="w-20 h-20 sm:w-36 sm:h-36 md:w-44 md:h-44 animate-float drop-shadow-2xl"
                       style={{ filter: 'drop-shadow(0 0 20px rgba(52, 211, 153, 0.5))' }}
                     />
                   </div>
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-3 leading-tight">
+                  <h2 className="text-xl sm:text-3xl md:text-4xl font-bold mb-1 sm:mb-3 leading-tight">
                     <span className="text-emerald-400">Sprout</span><span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">Chat</span>
                   </h2>
-                  <p className="text-slate-300 text-sm sm:text-base md:text-lg mb-3 sm:mb-6 leading-snug px-2">
+                  <p className="text-slate-300 text-xs sm:text-base md:text-lg mb-2 sm:mb-6 leading-snug px-2">
                     Your offline AI companion for emergencies and survival
                   </p>
                 </div>
 
-                <div className="space-y-2 sm:space-y-2 mb-2 sm:mb-4">
+                <div className="space-y-1.5 sm:space-y-2 mb-2 sm:mb-4">
                   <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl p-3 sm:p-4 shadow-xl border border-slate-700/50">
                     <div className="flex items-center gap-2.5 sm:gap-3">
                       <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
