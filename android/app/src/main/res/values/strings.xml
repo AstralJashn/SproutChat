@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SproutChat</string>
+    <string name="title_activity_main">SproutChat</string>
+    <string name="package_name">com.sproutchat.app</string>
+    <string name="custom_url_scheme">com.sproutchat.app</string>
+</resources>

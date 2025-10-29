@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Frontend Connection</title>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+
+    const SUPABASE_URL = 'https://skvmyufnlnikxnflxlhu.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrdm15dWZubG5pa3huZmx4bGh1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NzU3MDYsImV4cCI6MjA3NjI1MTcwNn0.3RhqRaY9KFRUAbZXSvc8OrDQ3kNVTjDIf11Tnoi7wOs'
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    async function testQuery(query) {
+      console.log(`Testing: "${query}"`)
+      const start = Date.now()
+
+      try {
+        const { data, error } = await supabase.functions.invoke('chat', {
+          body: {
+            messages: [
+              { role: 'user', content: query }
+            ]
+          }
+        })
+
+        const elapsed = Date.now() - start
+
+        if (error) {
+          console.error('❌ Error:', error)
+          document.getElementById('output').innerHTML += `<div style="color: red;">❌ ${query}: ${error.message}</div>`
+          return
+        }
+
+        const preview = data.content.substring(0, 200)
+        console.log(`✅ Success (${elapsed}ms):`, preview)
+        document.getElementById('output').innerHTML += `<div style="color: green; margin-bottom: 20px;">
+          <strong>✅ "${query}" (${elapsed}ms)</strong><br>
+          <pre style="white-space: pre-wrap; background: #f0f0f0; padding: 10px; margin-top: 5px;">${preview}...</pre>
+        </div>`
+      } catch (err) {
+        console.error('❌ Exception:', err)
+        document.getElementById('output').innerHTML += `<div style="color: red;">❌ ${query}: ${err.message}</div>`
+      }
+    }
+
+    window.addEventListener('load', async () => {
+      document.getElementById('output').innerHTML = '<h2>Testing Frontend → Edge Function Connection</h2>'
+
+      await testQuery('earthquake')
+      await testQuery('flood')
+      await testQuery('panic')
+      await testQuery('hurricane')
+
+      document.getElementById('output').innerHTML += '<div style="margin-top: 20px; font-weight: bold;">✅ All tests complete!</div>'
+    })
+  </script>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px; max-width: 1000px; margin: 0 auto;">
+  <h1>SproutChat Frontend Connection Test</h1>
+  <div id="output">Loading...</div>
+</body>
+</html>

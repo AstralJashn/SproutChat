@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Knowledge to Database</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #059669;
+    }
+    button:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      background: #f3f4f6;
+    }
+    .success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .loading {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    pre {
+      background: #1f2937;
+      color: #f9fafb;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🌱 Add Survival Knowledge to Database</h1>
+    <p>This tool will add comprehensive survival psychology and shelter management knowledge with extensive question variants.</p>
+
+    <div>
+      <button id="addPsychology">Add Psychology Knowledge</button>
+      <button id="addShelter">Add Shelter Knowledge</button>
+      <button id="addBoth">Add Both</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <script type="module">
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+    const survivalPsychologyKnowledge = {
+      title: "Survival Psychology & Mental Resilience",
+      content: "Comprehensive guide to mental resilience and psychological survival techniques",
+      source: "Sigma 3 Survival School",
+      chunks: [
+        {
+          content: "Survival is as much a mental challenge as a physical one. The human brain responds to immediate threats with the fight-or-flight response, pumping adrenaline and cortisol, which can impair cognitive function and cause panic. Prolonged stress wears down natural resilience, leading to decision fatigue, impaired judgment, and despair. Mental resilience enables clear thinking, measured action, adaptability, and emotional endurance over days or months of survival hardship.",
+          questionVariants: [
+            "How does stress affect survival?",
+            "What is the psychology of survival?",
+            "Why is mental strength important in survival?",
+            "How does the brain respond to survival situations?",
+            "What happens mentally during a crisis?",
+            "Why do people panic in emergencies?",
+            "How does adrenaline affect decision making?",
+            "What is survival psychology?",
+            "How important is mental resilience?",
+            "Why is mindset critical for survival?",
+            "What are the psychological challenges of survival?",
+            "How does panic affect survival chances?",
+            "What causes decision fatigue in survival?",
+            "How does cortisol impact survival?",
+            "Why is emotional control important?",
+            "What is the mental aspect of survival?",
+            "How do I stay mentally strong?",
+            "What is fight or flight response?",
+            "How does stress impair thinking?",
+            "Why is clear thinking important in crisis?"
+          ]
+        },
+        {
+          content: "The brain's stress physiology affects memory, attention, and decision-making capacity. High cortisol levels shrink the hippocampus's ability to encode new memories and recall past knowledge, critical in survival. Overwhelmed people may freeze, panic, or take unfocused actions that waste energy and resources. Conversely, calm, purposeful thinking stems from trained breath control, practiced mindfulness, and rehearsed responses.",
+          questionVariants: [
+            "How does stress affect memory?",
+            "Why can't I think clearly under stress?",
+            "What happens to the brain during panic?",
+            "How does cortisol affect memory?",
+            "Why do people freeze in emergencies?",
+            "How can I stay calm under pressure?",
+            "What is the hippocampus role in survival?",
+            "Why do I forget things when stressed?",
+            "How does breathing help with stress?",
+            "What is mindfulness in survival?",
+            "How do I avoid panic?",
+            "Why does my brain shut down in crisis?",
+            "How can I improve decision making under stress?",
+            "What causes people to freeze?",
+            "How do I maintain focus in emergencies?",
+            "What are stress responses?",
+            "How does breath control help?",
+            "Why is staying calm important?",
+            "How can I think clearly in crisis?",
+            "What helps with panic management?"
+          ]
+        },
+        {
+          content: "Begin a daily mindfulness meditation, focusing on breath awareness for 10-20 minutes, training your nervous system to relax on command. Learn and regularly rehearse controlled breathing techniques such as box breathing (inhale-hold-exhale-hold) or the 4-7-8 method to reduce panic and maintain focus. Practice decision-making under duress with timed drills to build confidence in quick, accurate problem-solving.",
+          questionVariants: [
+            "How do I practice meditation for survival?",
+            "What is box breathing?",
+            "How can I calm myself down?",
+            "What breathing techniques help with panic?",
+            "How do I train my nervous system?",
+            "What is the 4-7-8 breathing method?",
+            "How can I reduce panic?",
+            "How do I build mental resilience?",
+            "What are breathing exercises for stress?",
+            "How can I stay focused under pressure?",
+            "How do I practice for emergencies?",
+            "What is mindfulness meditation?",
+            "How long should I meditate?",
+            "How can I control my breathing?",
+            "What are panic reduction techniques?",
+            "How do I train for crisis situations?",
+            "What is breath awareness?",
+            "How can I improve my stress response?",
+            "How do I practice decision making?",
+            "What drills help with survival?"
+          ]
+        }
+      ]
+    };
+
+    async function addKnowledge(knowledge, label) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = 'status loading';
+      statusDiv.innerHTML = `<p>Adding ${label}...</p>`;
+
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/add-knowledge`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(knowledge),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        statusDiv.className = 'status success';
+        statusDiv.innerHTML = `
+          <h3>✅ Success!</h3>
+          <p><strong>${label}</strong> added successfully</p>
+          <pre>${JSON.stringify(result, null, 2)}</pre>
+        `;
+      } catch (error) {
+        statusDiv.className = 'status error';
+        statusDiv.innerHTML = `
+          <h3>❌ Error</h3>
+          <p>${error.message}</p>
+          <pre>${error.stack}</pre>
+        `;
+      }
+    }
+
+    document.getElementById('addPsychology').addEventListener('click', () => {
+      addKnowledge(survivalPsychologyKnowledge, 'Psychology Knowledge');
+    });
+
+    document.getElementById('addShelter').addEventListener('click', () => {
+      alert('Add shelter knowledge object here');
+    });
+
+    document.getElementById('addBoth').addEventListener('click', async () => {
+      await addKnowledge(survivalPsychologyKnowledge, 'Psychology Knowledge');
+    });
+  </script>
+</body>
+</html>
