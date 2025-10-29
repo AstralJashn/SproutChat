@@ -73,15 +73,29 @@ export function VoiceMode({
   }, []);
 
   useEffect(() => {
+    console.log('[VoiceMode] ==== INITIALIZING VOICE MODE ====');
+    console.log('[VoiceMode] Checking for SpeechRecognition...');
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    console.log('[VoiceMode] SpeechRecognition available:', !!SpeechRecognition);
 
     if (!SpeechRecognition) {
+      console.error('[VoiceMode] ❌ Speech recognition NOT supported');
       alert('Speech recognition is not supported in this browser.');
       onClose();
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    console.log('[VoiceMode] Creating SpeechRecognition instance...');
+    let recognition;
+    try {
+      recognition = new SpeechRecognition();
+      console.log('[VoiceMode] ✓ SpeechRecognition instance created');
+    } catch (error) {
+      console.error('[VoiceMode] ❌ Failed to create SpeechRecognition:', error);
+      alert('Failed to initialize speech recognition');
+      onClose();
+      return;
+    }
     recognitionRef.current = recognition;
     recognition.continuous = true;
     recognition.interimResults = true;
