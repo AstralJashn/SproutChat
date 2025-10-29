@@ -103,11 +103,18 @@ export function VoiceMode({
 
     recognition.onstart = () => {
       console.log('[VoiceMode] ✓ Recognition started successfully');
+      console.log('[VoiceMode] Recognition is now actively listening for speech...');
+      console.log('[VoiceMode] Please speak now to test if recognition is working');
       setIsListening(true);
+
+      setTimeout(() => {
+        console.log('[VoiceMode] ⏰ 5 seconds passed - has onresult been called yet?');
+      }, 5000);
     };
 
     recognition.onresult = (event: any) => {
-      console.log('[VoiceMode] onresult fired, results count:', event.results.length);
+      console.log('[VoiceMode] 🎤 onresult fired! Speech detected!');
+      console.log('[VoiceMode] Results count:', event.results.length);
       if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
         console.log('[VoiceMode] Ignoring result - already processing or submitted');
         return;
