@@ -170,6 +170,9 @@ export function VoiceMode({
       setIsListening(true);
     } catch (error) {
       console.error('[VoiceMode] ❌ Error calling recognition.start():', error);
+      console.error('[VoiceMode] Error type:', error instanceof DOMException ? 'DOMException' : typeof error);
+      console.error('[VoiceMode] Error name:', (error as any)?.name);
+      console.error('[VoiceMode] Error message:', (error as any)?.message);
     }
 
     navigator.mediaDevices.getUserMedia({ audio: true })
@@ -199,7 +202,12 @@ export function VoiceMode({
         };
         updateAudioLevel();
       })
-      .catch((err) => console.error('Microphone access error:', err));
+      .catch((error) => {
+        console.error('[VoiceMode] ❌ Microphone access denied or error:', error);
+        console.error('[VoiceMode] getUserMedia error type:', error instanceof DOMException ? 'DOMException' : typeof error);
+        console.error('[VoiceMode] getUserMedia error name:', (error as any)?.name);
+        console.error('[VoiceMode] getUserMedia error message:', (error as any)?.message);
+      });
 
     return () => {
       recognition.stop();
