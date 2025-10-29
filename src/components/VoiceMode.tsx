@@ -119,23 +119,8 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended, hasSubmittedTranscript:', hasSubmittedTranscriptRef.current);
-      if (!hasSubmittedTranscriptRef.current && !isProcessingTranscriptRef.current) {
-        if (lastTranscriptRef.current.trim() && silenceTimerRef.current) {
-          console.log('[VoiceMode] Have transcript, silence timer running, do NOT restart');
-        } else if (!lastTranscriptRef.current.trim()) {
-          console.log('[VoiceMode] No transcript, restarting immediately...');
-          setTimeout(() => {
-            if (recognitionRef.current && !hasSubmittedTranscriptRef.current && !isProcessingTranscriptRef.current) {
-              try {
-                recognitionRef.current.start();
-              } catch (err) {
-                console.error('[VoiceMode] Error restarting:', err);
-              }
-            }
-          }, 50);
-        }
-      }
+      console.log('[VoiceMode] Recognition ended');
+      setIsListening(false);
     };
 
     recognition.start();
@@ -291,31 +276,19 @@ export function VoiceMode({
         targetScale = 1 + intensity * 0.2;
         currentScale = currentScale * 0.8 + targetScale * 0.2;
         heartRef.current.style.transform = `scale(${currentScale})`;
-      } else if (isListening) {
-        if (micAudioLevel > 15) {
-          const intensity = Math.min(1, micAudioLevel / 80);
-          const dynamicBeatInterval = 200 - (intensity * 80);
+      } else if (isListening && micAudioLevel > 15) {
+        const intensity = Math.min(1, micAudioLevel / 80);
+        const dynamicBeatInterval = 200 - (intensity * 80);
 
-          if (timestamp - lastBeatTime > dynamicBeatInterval) {
-            targetScale = 1.15 + intensity * 0.4;
-            lastBeatTime = timestamp;
-          } else if (timestamp - lastBeatTime > dynamicBeatInterval / 2) {
-            targetScale = 1.0;
-          }
-
-          currentScale = currentScale * 0.65 + targetScale * 0.35;
-          heartRef.current.style.transform = `scale(${currentScale})`;
-        } else {
-          const beatInterval = 800;
-          if (timestamp - lastBeatTime > beatInterval) {
-            targetScale = 1.08;
-            lastBeatTime = timestamp;
-          } else if (timestamp - lastBeatTime > 400) {
-            targetScale = 1;
-          }
-          currentScale = currentScale * 0.85 + targetScale * 0.15;
-          heartRef.current.style.transform = `scale(${currentScale})`;
+        if (timestamp - lastBeatTime > dynamicBeatInterval) {
+          targetScale = 1.15 + intensity * 0.4;
+          lastBeatTime = timestamp;
+        } else if (timestamp - lastBeatTime > dynamicBeatInterval / 2) {
+          targetScale = 1.0;
         }
+
+        currentScale = currentScale * 0.65 + targetScale * 0.35;
+        heartRef.current.style.transform = `scale(${currentScale})`;
       } else {
         targetScale = 1;
         currentScale = currentScale * 0.9 + targetScale * 0.1;
