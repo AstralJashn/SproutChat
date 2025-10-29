@@ -1094,8 +1094,8 @@ function App() {
         </div>
       </main>
 
-      <footer className="relative z-10 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 shadow-[0_-8px_30px_rgba(0,0,0,0.3)] shrink-0 pb-12 sm:pb-3">
-        <div className="w-full max-w-3xl mx-auto px-4 sm:px-4 pt-2.5 sm:pt-3 pb-0 sm:pb-0">
+      <footer className="relative z-10 bg-slate-900/95 backdrop-blur-xl border-t border-slate-700/50 shadow-[0_-8px_30px_rgba(0,0,0,0.3)] shrink-0 pb-12 sm:pb-3 flex items-center">
+        <div className="w-full max-w-3xl mx-auto px-4 sm:px-4">
           <div className="bg-slate-800/80 backdrop-blur-md border border-slate-700/50 rounded-3xl p-2.5 sm:p-3 shadow-lg">
             <div className="flex items-center gap-2 sm:gap-2 mb-2.5">
               <button
