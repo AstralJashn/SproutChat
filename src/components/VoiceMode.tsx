@@ -122,7 +122,7 @@ export function VoiceMode({
           setTranscript('');
         }
         silenceTimerRef.current = null;
-      }, 2000);
+      }, 5000);
     };
 
     recognition.onerror = (event: any) => {
