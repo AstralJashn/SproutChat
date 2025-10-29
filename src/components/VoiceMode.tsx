@@ -34,7 +34,7 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(6)].map((_, i) => ({
+    return [...Array(12)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
@@ -46,7 +46,7 @@ export function VoiceMode({
   }, []);
 
   const backgroundEmbers = useMemo(() => {
-    return [...Array(4)].map((_, i) => ({
+    return [...Array(8)].map((_, i) => ({
       key: `ember-${i}`,
       left: `${15 + Math.random() * 70}%`,
       duration: 6 + Math.random() * 4,
@@ -56,10 +56,10 @@ export function VoiceMode({
   }, []);
 
   const backgroundHeartbeats = useMemo(() => {
-    return [...Array(2)].map((_, i) => ({
+    return [...Array(3)].map((_, i) => ({
       key: `heartbeat-${i}`,
-      left: `${30 + i * 40}%`,
-      top: `${40 + (i % 2) * 20}%`,
+      left: `${20 + i * 30}%`,
+      top: `${30 + (i % 2) * 40}%`,
       delay: `${i * 2}s`,
     }));
   }, []);
