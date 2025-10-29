@@ -88,6 +88,7 @@ export function VoiceMode({
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
+      console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
     };
 
@@ -131,8 +132,12 @@ export function VoiceMode({
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+      console.error('[VoiceMode] ❌ Speech recognition error:', event.error);
+      console.error('[VoiceMode] Error type:', typeof event.error);
+      console.error('[VoiceMode] Full error object:', event);
+      console.error('[VoiceMode] Error message:', event.message || 'no message');
       if (event.error !== 'no-speech') {
+        console.log('[VoiceMode] Stopping listening due to error');
         setIsListening(false);
       }
     };
@@ -144,8 +149,14 @@ export function VoiceMode({
       }
     };
 
-    recognition.start();
-    setIsListening(true);
+    console.log('[VoiceMode] Attempting to start recognition...');
+    try {
+      recognition.start();
+      console.log('[VoiceMode] recognition.start() called successfully');
+      setIsListening(true);
+    } catch (error) {
+      console.error('[VoiceMode] ❌ Error calling recognition.start():', error);
+    }
 
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((stream) => {
