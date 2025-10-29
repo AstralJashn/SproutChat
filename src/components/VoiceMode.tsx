@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { X, Mic, Brain, Volume2 } from 'lucide-react';
+import { ErrorConsole } from './ErrorConsole';
 
 interface VoiceModeProps {
   onClose: () => void;
@@ -40,6 +41,7 @@ export function VoiceMode({
   const hasSubmittedTranscriptRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef('');
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const backgroundSparks = useMemo(() => {
     return [...Array(6)].map((_, i) => ({
@@ -620,6 +622,11 @@ export function VoiceMode({
 
         </div>
       </div>
+
+      <ErrorConsole
+        isOpen={isConsoleOpen}
+        onToggle={() => setIsConsoleOpen(!isConsoleOpen)}
+      />
     </div>
   );
 }

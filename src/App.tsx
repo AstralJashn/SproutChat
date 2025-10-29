@@ -6,7 +6,6 @@ import { VoiceMode } from './components/VoiceMode';
 import { CameraCapture } from './components/CameraCapture';
 import { PackingList } from './components/PackingList';
 import { SituationalGuide } from './components/SituationalGuide';
-import { ErrorConsole } from './components/ErrorConsole';
 
 interface Message {
   id: string;
@@ -131,7 +130,6 @@ function App() {
   const [isPackingListOpen, setIsPackingListOpen] = useState(false);
   const [isSituationalGuideOpen, setIsSituationalGuideOpen] = useState(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -1214,11 +1212,6 @@ function App() {
           </div>
         </div>
       )}
-
-      <ErrorConsole
-        isOpen={isConsoleOpen}
-        onToggle={() => setIsConsoleOpen(!isConsoleOpen)}
-      />
     </div>
   );
 }
