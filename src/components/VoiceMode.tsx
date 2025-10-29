@@ -87,12 +87,8 @@ export function VoiceMode({
       if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) return;
 
       let fullTranscript = '';
-      let isFinal = false;
       for (let i = 0; i < event.results.length; i++) {
         fullTranscript += event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          isFinal = true;
-        }
       }
 
       setTranscript(fullTranscript);
@@ -100,16 +96,6 @@ export function VoiceMode({
 
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
-      }
-
-      if (isFinal && fullTranscript.trim()) {
-        isProcessingTranscriptRef.current = true;
-        hasSubmittedTranscriptRef.current = true;
-        recognition.stop();
-        setIsListening(false);
-        onTranscript(fullTranscript);
-        setTranscript('');
-        return;
       }
 
       silenceTimerRef.current = setTimeout(() => {
