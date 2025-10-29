@@ -207,9 +207,16 @@ function App() {
     console.log('[Voice] ===== TRANSCRIPT RECEIVED =====');
     console.log('[Voice] Length:', transcript.length);
     console.log('[Voice] Text:', transcript.substring(0, 100));
+    console.log('[Voice] Current isGenerating:', isGenerating);
     console.log('[Voice] Calling processMessage...');
 
     stopCurrentAudio();
+
+    if (isGenerating) {
+      console.log('[Voice] ❌ BLOCKED - already generating');
+      return;
+    }
+
     setIsVoiceProcessing(true);
 
     try {
