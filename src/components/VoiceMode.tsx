@@ -347,11 +347,11 @@ export function VoiceMode({
         <div className="absolute top-40 right-5 w-[300px] h-[300px] bg-gradient-to-br from-cyan-500/15 to-cyan-600/5 rounded-full filter blur-[60px]" style={{ animationDelay: '1s' }}></div>
       </div>
 
-      <div className="absolute inset-0 pointer-events-none overflow-hidden hidden md:block">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {backgroundSparks.slice(0, 3).map((spark) => (
           <div
             key={spark.key}
-            className="absolute w-1.5 h-1.5 rounded-full bg-emerald-300"
+            className="absolute w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-emerald-300"
             style={{
               left: spark.left,
               top: spark.top,
