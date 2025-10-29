@@ -34,42 +34,33 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(12)].map((_, i) => {
-      const startX = Math.random() * 100;
-      const startY = Math.random() * 100;
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 15 + Math.random() * 25;
-      const flowX = Math.cos(angle) * distance;
-      const flowY = Math.sin(angle) * distance;
-
-      return {
-        key: `spark-${i}`,
-        left: `${startX}%`,
-        top: `${startY}%`,
-        duration: 5 + Math.random() * 3,
-        delay: Math.random() * 4,
-        sparkX: `${flowX}vw`,
-        sparkY: `${flowY}vh`,
-      };
-    });
+    return [...Array(12)].map((_, i) => ({
+      key: `spark-${i}`,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      duration: 4 + Math.random() * 4,
+      delay: Math.random() * 3,
+      sparkX: `${(Math.random() - 0.5) * 200}px`,
+      sparkY: `${(Math.random() - 0.5) * 200}px`,
+    }));
   }, []);
 
   const backgroundEmbers = useMemo(() => {
-    return [...Array(4)].map((_, i) => ({
+    return [...Array(8)].map((_, i) => ({
       key: `ember-${i}`,
-      left: `${Math.random() * 100}%`,
+      left: `${15 + Math.random() * 70}%`,
       duration: 6 + Math.random() * 4,
-      delay: Math.random() * 3,
-      driftX: `${(Math.random() - 0.5) * 60}px`,
+      delay: Math.random() * 5,
+      driftX: `${(Math.random() - 0.5) * 100}px`,
     }));
   }, []);
 
   const backgroundHeartbeats = useMemo(() => {
     return [...Array(3)].map((_, i) => ({
       key: `heartbeat-${i}`,
-      left: `${Math.random() * 100}%`,
-      top: `${Math.random() * 100}%`,
-      delay: `${Math.random() * 3}s`,
+      left: `${20 + i * 30}%`,
+      top: `${30 + (i % 2) * 40}%`,
+      delay: `${i * 2}s`,
     }));
   }, []);
 
@@ -360,14 +351,46 @@ export function VoiceMode({
         {backgroundSparks.map((spark) => (
           <div
             key={spark.key}
-            className="absolute w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-gradient-to-r from-emerald-300 to-cyan-300"
+            className="absolute w-1.5 h-1.5 rounded-full bg-gradient-to-r from-emerald-300 to-cyan-300 shadow-[0_0_8px_rgba(16,185,129,0.8)]"
             style={{
               left: spark.left,
               top: spark.top,
-              animation: `spark-float ${spark.duration}s ease-out ${spark.delay}s infinite`,
+              animation: `spark-float ${spark.duration}s ease-in-out ${spark.delay}s infinite`,
               '--spark-x': spark.sparkX,
               '--spark-y': spark.sparkY,
+              willChange: 'transform, opacity',
             } as any}
+          />
+        ))}
+      </div>
+
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {backgroundEmbers.map((ember) => (
+          <div
+            key={ember.key}
+            className="absolute w-1 h-1 rounded-full bg-gradient-to-t from-emerald-400 to-cyan-400 shadow-[0_0_6px_rgba(16,185,129,0.9)]"
+            style={{
+              left: ember.left,
+              bottom: '10%',
+              animation: `ember-drift ${ember.duration}s linear ${ember.delay}s infinite`,
+              '--drift-x': ember.driftX,
+              willChange: 'transform, opacity',
+            } as any}
+          />
+        ))}
+      </div>
+
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {backgroundHeartbeats.map((heartbeat) => (
+          <div
+            key={heartbeat.key}
+            className="absolute w-3 h-3 rounded-full bg-emerald-400/30 blur-sm animate-heartbeat-pulse"
+            style={{
+              left: heartbeat.left,
+              top: heartbeat.top,
+              animationDelay: heartbeat.delay,
+              willChange: 'transform, opacity',
+            }}
           />
         ))}
       </div>
