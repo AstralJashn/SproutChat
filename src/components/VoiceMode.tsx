@@ -75,7 +75,7 @@ export function VoiceMode({
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
