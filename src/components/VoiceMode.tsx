@@ -415,7 +415,7 @@ export function VoiceMode({
         <img
           src="/Hello-World-earth.svg"
           alt="Earth"
-          className="w-[400px] h-[400px] opacity-25 object-contain"
+          className="w-[250px] h-[250px] sm:w-[300px] sm:h-[300px] opacity-25 object-contain"
         />
       </div>
 
