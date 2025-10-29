@@ -119,8 +119,10 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended');
-      setIsListening(false);
+      console.log('[VoiceMode] Recognition ended, hasSubmitted:', hasSubmittedTranscriptRef.current);
+      if (!hasSubmittedTranscriptRef.current && !isProcessingTranscriptRef.current) {
+        setIsListening(false);
+      }
     };
 
     recognition.start();
