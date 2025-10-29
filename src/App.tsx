@@ -954,8 +954,8 @@ function App() {
       <main className={`relative z-10 flex-1 overflow-y-auto min-h-0 ${messages.length === 0 ? 'flex flex-col' : ''}`}>
         <div className="w-full h-full">
           {messages.length === 0 ? (
-            <div className="flex-1 flex flex-col px-4 sm:px-4 py-3 sm:py-6 max-w-2xl mx-auto overflow-y-auto">
-              <div className="flex flex-col justify-center min-h-0">
+            <div className="flex-1 flex flex-col px-4 sm:px-4 py-3 sm:py-6 max-w-2xl mx-auto overflow-y-auto pt-safe">
+              <div className="flex flex-col justify-center min-h-0 mt-16 sm:mt-8">
                 <div className="text-center mb-3 sm:mb-8">
                   <div className="flex justify-center mb-2 sm:mb-4">
                     <img
