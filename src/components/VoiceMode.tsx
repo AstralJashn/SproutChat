@@ -92,13 +92,18 @@ export function VoiceMode({
     };
 
     recognition.onresult = (event: any) => {
-      if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) return;
+      console.log('[VoiceMode] onresult fired, results count:', event.results.length);
+      if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
+        console.log('[VoiceMode] Ignoring result - already processing or submitted');
+        return;
+      }
 
       let fullTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
         fullTranscript += event.results[i][0].transcript;
       }
 
+      console.log('[VoiceMode] Transcript updated:', fullTranscript.substring(0, 50));
       setTranscript(fullTranscript);
       lastTranscriptRef.current = fullTranscript;
 

@@ -217,7 +217,9 @@ function App() {
       return;
     }
 
+    console.log('[Voice] Setting isVoiceProcessing to TRUE');
     setIsVoiceProcessing(true);
+    console.log('[Voice] isVoiceProcessing should now be true');
 
     try {
       await processMessage(transcript, true);
