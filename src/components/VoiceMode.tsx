@@ -34,21 +34,20 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(8)].map((_, i) => {
-      const angle = (i / 8) * Math.PI * 2;
-      const startRadius = 15;
-      const endRadius = 45;
-      const startX = 50 + Math.cos(angle) * startRadius;
-      const startY = 50 + Math.sin(angle) * startRadius;
-      const flowX = Math.cos(angle) * endRadius;
-      const flowY = Math.sin(angle) * endRadius;
+    return [...Array(12)].map((_, i) => {
+      const startX = Math.random() * 100;
+      const startY = Math.random() * 100;
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 15 + Math.random() * 25;
+      const flowX = Math.cos(angle) * distance;
+      const flowY = Math.sin(angle) * distance;
 
       return {
         key: `spark-${i}`,
         left: `${startX}%`,
         top: `${startY}%`,
-        duration: 3 + Math.random() * 2,
-        delay: Math.random() * 3,
+        duration: 5 + Math.random() * 3,
+        delay: Math.random() * 4,
         sparkX: `${flowX}vw`,
         sparkY: `${flowY}vh`,
       };
