@@ -1013,7 +1013,7 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="px-4 sm:px-4 py-4 sm:py-4 pb-3">
+            <div className="px-4 sm:px-4 pt-8 sm:pt-4 pb-3">
               <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-4">
                 {messages.map((message) => (
                   <div
