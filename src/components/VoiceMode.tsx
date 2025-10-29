@@ -104,12 +104,14 @@ export function VoiceMode({
     recognition.onstart = () => {
       console.log('[VoiceMode] ✓ Recognition started successfully');
       console.log('[VoiceMode] Recognition is now actively listening for speech...');
+      console.log('[VoiceMode] Browser:', navigator.userAgent);
       console.log('[VoiceMode] Please speak now to test if recognition is working');
       setIsListening(true);
 
       setTimeout(() => {
-        console.log('[VoiceMode] ⏰ 5 seconds passed - has onresult been called yet?');
-      }, 5000);
+        console.log('[VoiceMode] ⏰ 10 seconds passed - onresult should have fired by now if speech was detected');
+        console.log('[VoiceMode] If you spoke and saw the heart animation but no transcript appeared, the browser Speech API is broken');
+      }, 10000);
     };
 
     recognition.onresult = (event: any) => {
