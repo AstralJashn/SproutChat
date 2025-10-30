@@ -721,8 +721,8 @@ function App() {
             audio.crossOrigin = 'anonymous';
             currentAudioRef.current = audio;
 
-            audio.onended = () => {
-              console.log('[TTS] ✅ Murf playback complete - ready for next question');
+            const cleanupAudio = () => {
+              console.log('[TTS] 🧹 Cleaning up audio');
               if (currentAudioRef.current === audio) {
                 currentAudioRef.current = null;
               }
@@ -732,43 +732,50 @@ function App() {
               setIsVoiceProcessing(false);
               setIsGenerating(false);
               stopSpeechVisualization();
-              console.log('[TTS] State reset complete', {
-                isSpeaking: false,
-                isVoiceProcessing: false,
-                isGenerating: false,
-                timestamp: new Date().toISOString()
-              });
+            };
+
+            audio.onended = () => {
+              console.log('[TTS] ✅ Murf playback complete - ready for next question');
+              cleanupAudio();
             };
 
             audio.onerror = (e) => {
               console.error('[TTS] Audio playback error:', e);
-              if (currentAudioRef.current === audio) {
-                currentAudioRef.current = null;
-              }
-              isSpeakingRef.current = false;
-              setIsSpeaking(false);
-              setResponseAudioLevel(0);
-              setIsVoiceProcessing(false);
-              setIsGenerating(false);
-              stopSpeechVisualization();
+              cleanupAudio();
+            };
+
+            audio.onpause = () => {
+              console.log('[TTS] ⚠️ Audio paused unexpectedly');
+              cleanupAudio();
+            };
+
+            audio.onstalled = () => {
+              console.warn('[TTS] ⚠️ Audio stalled (network issue)');
+            };
+
+            audio.onsuspend = () => {
+              console.warn('[TTS] ⚠️ Audio suspended (network issue)');
             };
 
             return new Promise<void>((resolve) => {
               let hasStarted = false;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
-                  console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
+                  console.log('[TTS] ⚠️ Buffering timeout (1s), starting playback anyway');
                   hasStarted = true;
                   isSpeakingRef.current = true;
+                  setIsSpeaking(true);
                   audio.play().then(() => {
+                    console.log('[TTS] ▶️ Playback started (timeout path)');
                     startSpeechVisualization();
                     resolve();
                   }).catch((err) => {
                     console.error('[TTS] Timeout play error:', err);
+                    cleanupAudio();
                     resolve();
                   });
                 }
-              }, 2000);
+              }, 1000);
 
               audio.oncanplay = async () => {
                 if (!hasStarted) {
@@ -777,11 +784,14 @@ function App() {
                   console.log('[TTS] ✅ Audio ready to play (fast path)');
                   try {
                     isSpeakingRef.current = true;
+                    setIsSpeaking(true);
                     await audio.play();
+                    console.log('[TTS] ▶️ Playback started (fast path)');
                     startSpeechVisualization();
                     resolve();
                   } catch (playError) {
                     console.error('[TTS] Play error:', playError);
+                    cleanupAudio();
                     resolve();
                   }
                 }
