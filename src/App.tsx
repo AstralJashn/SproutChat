@@ -130,6 +130,7 @@ function App() {
   const [isPackingListOpen, setIsPackingListOpen] = useState(false);
   const [isSituationalGuideOpen, setIsSituationalGuideOpen] = useState(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioCacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -677,140 +678,151 @@ function App() {
         throw new Error('No text to speak');
       }
 
-      console.log('[TTS] Calling Murf TTS API with timeout...');
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const cacheKey = text.substring(0, 100);
+      const cachedUrl = audioCacheRef.current.get(cacheKey);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ text }),
-            signal: controller.signal
+      let audioUrl: string;
+
+      if (cachedUrl) {
+        console.log('[TTS] ⚡ Using cached audio URL (instant playback)');
+        audioUrl = cachedUrl;
+      } else {
+        console.log('[TTS] Calling Murf TTS API with timeout...');
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ text }),
+              signal: controller.signal
+            }
+          );
+
+          clearTimeout(timeoutId);
+
+          console.log('[TTS] API response status:', response.status, response.headers.get('content-type'));
+
+          if (!response.ok) {
+            console.error('[TTS] API error, status:', response.status);
+            throw new Error(`Murf API failed: ${response.status}`);
           }
-        );
 
-        clearTimeout(timeoutId);
+          const contentType = response.headers.get('content-type');
 
-        console.log('[TTS] API response status:', response.status, response.headers.get('content-type'));
+          if (contentType?.includes('application/json')) {
+            const jsonData = await response.json();
 
-        if (!response.ok) {
-          console.error('[TTS] API error, status:', response.status);
-          throw new Error(`Murf API failed: ${response.status}`);
-        }
+            if (jsonData.error === 'use_browser_tts') {
+              console.log('[TTS] Murf unavailable, error:', jsonData.message);
+              throw new Error('Murf unavailable');
+            }
 
-        const contentType = response.headers.get('content-type');
-
-        if (contentType?.includes('application/json')) {
-          const jsonData = await response.json();
-
-          if (jsonData.error === 'use_browser_tts') {
-            console.log('[TTS] Murf unavailable, error:', jsonData.message);
-            throw new Error('Murf unavailable');
-          }
-
-          if (jsonData.success && jsonData.audioUrl) {
-            console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
-            const audio = new Audio();
-            audio.preload = 'auto';
-            audio.crossOrigin = 'anonymous';
-            currentAudioRef.current = audio;
-
-            const cleanupAudio = () => {
-              console.log('[TTS] 🧹 Cleaning up audio');
-              if (currentAudioRef.current === audio) {
-                currentAudioRef.current = null;
+            if (jsonData.success && jsonData.audioUrl) {
+              console.log('[TTS] ✅ Received audio URL from Murf');
+              audioUrl = jsonData.audioUrl;
+              audioCacheRef.current.set(cacheKey, audioUrl);
+              if (audioCacheRef.current.size > 20) {
+                const firstKey = audioCacheRef.current.keys().next().value;
+                audioCacheRef.current.delete(firstKey);
               }
-              isSpeakingRef.current = false;
-              setIsSpeaking(false);
-              setResponseAudioLevel(0);
-              setIsVoiceProcessing(false);
-              setIsGenerating(false);
-              stopSpeechVisualization();
-            };
-
-            audio.onended = () => {
-              console.log('[TTS] ✅ Murf playback complete - ready for next question');
-              cleanupAudio();
-            };
-
-            audio.onerror = (e) => {
-              console.error('[TTS] Audio playback error:', e);
-              cleanupAudio();
-            };
-
-            audio.onpause = () => {
-              console.log('[TTS] ⚠️ Audio paused unexpectedly');
-              cleanupAudio();
-            };
-
-            audio.onstalled = () => {
-              console.warn('[TTS] ⚠️ Audio stalled (network issue)');
-            };
-
-            audio.onsuspend = () => {
-              console.warn('[TTS] ⚠️ Audio suspended (network issue)');
-            };
-
-            return new Promise<void>((resolve) => {
-              let hasStarted = false;
-              const timeoutId = setTimeout(() => {
-                if (!hasStarted) {
-                  console.log('[TTS] ⚠️ Buffering timeout (1s), starting playback anyway');
-                  hasStarted = true;
-                  isSpeakingRef.current = true;
-                  setIsSpeaking(true);
-                  audio.play().then(() => {
-                    console.log('[TTS] ▶️ Playback started (timeout path)');
-                    startSpeechVisualization();
-                    resolve();
-                  }).catch((err) => {
-                    console.error('[TTS] Timeout play error:', err);
-                    cleanupAudio();
-                    resolve();
-                  });
-                }
-              }, 1000);
-
-              audio.oncanplay = async () => {
-                if (!hasStarted) {
-                  clearTimeout(timeoutId);
-                  hasStarted = true;
-                  console.log('[TTS] ✅ Audio ready to play (fast path)');
-                  try {
-                    isSpeakingRef.current = true;
-                    setIsSpeaking(true);
-                    await audio.play();
-                    console.log('[TTS] ▶️ Playback started (fast path)');
-                    startSpeechVisualization();
-                    resolve();
-                  } catch (playError) {
-                    console.error('[TTS] Play error:', playError);
-                    cleanupAudio();
-                    resolve();
-                  }
-                }
-              };
-
-              audio.src = jsonData.audioUrl;
-              audio.load();
-            });
+            } else {
+              console.log('[TTS] JSON response (unexpected format):', jsonData);
+              throw new Error('Unexpected JSON response');
+            }
+          } else {
+            console.error('[TTS] Unexpected content type:', contentType);
+            throw new Error('Unexpected response type');
           }
-
-          console.log('[TTS] JSON response (unexpected format):', jsonData);
-          throw new Error('Unexpected JSON response');
+        } catch (apiError) {
+          console.error('[TTS] ❌ Murf failed, cannot play audio:', apiError);
+          throw apiError;
         }
+      }
 
-        console.error('[TTS] Unexpected content type:', contentType);
-        throw new Error('Unexpected response type');
+      if (audioUrl) {
+        console.log('[TTS] 🎵 Starting audio playback...');
+        const audio = new Audio();
+        audio.preload = 'metadata';
+        audio.crossOrigin = 'anonymous';
+        currentAudioRef.current = audio;
 
-      } catch (apiError: any) {
-        console.error('[TTS] ❌ Murf failed, cannot play audio:', apiError);
+        const cleanupAudio = () => {
+          if (currentAudioRef.current === audio) {
+            currentAudioRef.current = null;
+          }
+          isSpeakingRef.current = false;
+          setIsSpeaking(false);
+          setResponseAudioLevel(0);
+          setIsVoiceProcessing(false);
+          setIsGenerating(false);
+          stopSpeechVisualization();
+        };
+
+        audio.onended = () => {
+          console.log('[TTS] ✅ Playback complete');
+          cleanupAudio();
+        };
+
+        audio.onerror = (e) => {
+          console.error('[TTS] Audio error:', e);
+          cleanupAudio();
+        };
+
+        audio.onpause = () => {
+          console.log('[TTS] ⚠️ Audio paused');
+          cleanupAudio();
+        };
+
+        return new Promise<void>((resolve) => {
+          let hasStarted = false;
+          const timeoutId = setTimeout(() => {
+            if (!hasStarted) {
+              hasStarted = true;
+              isSpeakingRef.current = true;
+              setIsSpeaking(true);
+              audio.play().then(() => {
+                startSpeechVisualization();
+                resolve();
+              }).catch((err) => {
+                console.error('[TTS] Play error:', err);
+                cleanupAudio();
+                resolve();
+              });
+            }
+          }, 500);
+
+          audio.oncanplay = async () => {
+            if (!hasStarted) {
+              clearTimeout(timeoutId);
+              hasStarted = true;
+              try {
+                isSpeakingRef.current = true;
+                setIsSpeaking(true);
+                await audio.play();
+                startSpeechVisualization();
+                resolve();
+              } catch (playError) {
+                console.error('[TTS] Play error:', playError);
+                cleanupAudio();
+                resolve();
+              }
+            }
+          };
+
+          audio.src = audioUrl;
+          audio.load();
+        });
+      }
+
+    } catch (error: any) {
+        console.error('[TTS] ❌ Failed:', error);
         isSpeakingRef.current = false;
         setIsSpeaking(false);
         setResponseAudioLevel(0);
@@ -818,14 +830,6 @@ function App() {
         setIsGenerating(false);
         setErrorNotification('Voice unavailable - see text response');
         setTimeout(() => setErrorNotification(null), 3000);
-        return;
-      }
-
-    } catch (error: any) {
-      console.error('[TTS] Fatal error:', error);
-      setIsSpeaking(false);
-      setErrorNotification('Voice playback failed');
-      setTimeout(() => setErrorNotification(null), 3000);
     }
   };
 
