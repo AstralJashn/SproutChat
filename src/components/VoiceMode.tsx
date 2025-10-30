@@ -99,41 +99,57 @@ export function VoiceMode({
       return;
     }
     recognitionRef.current = recognition;
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.continuous = true;
+    recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log('[VoiceMode] ✓ Recognition started - speak now');
+      console.log('[VoiceMode] Recognition started');
       setIsListening(true);
     };
 
     recognition.onresult = (event: any) => {
-      console.log('[VoiceMode] 🎤 onresult fired! Speech detected!');
+      console.log('[VoiceMode] onresult fired');
       if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
         console.log('[VoiceMode] Ignoring - already processing');
         return;
       }
 
-      let fullTranscript = '';
-      for (let i = 0; i < event.results.length; i++) {
+      let interimTranscript = '';
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          fullTranscript += event.results[i][0].transcript;
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
         }
       }
 
-      if (fullTranscript.trim()) {
-        console.log('[VoiceMode] Final transcript:', fullTranscript);
-        setTranscript(fullTranscript);
-        lastTranscriptRef.current = fullTranscript;
+      if (finalTranscript.trim()) {
+        console.log('[VoiceMode] Final transcript received:', finalTranscript);
+        lastTranscriptRef.current = finalTranscript;
+        setTranscript(finalTranscript);
 
-        console.log('[VoiceMode] ✓ Submitting transcript');
-        isProcessingTranscriptRef.current = true;
-        hasSubmittedTranscriptRef.current = true;
-        setIsListening(false);
-        onTranscript(fullTranscript);
-        setTranscript('');
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+
+        silenceTimerRef.current = setTimeout(() => {
+          console.log('[VoiceMode] Submitting after silence');
+          if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+            isProcessingTranscriptRef.current = true;
+            hasSubmittedTranscriptRef.current = true;
+            recognition.stop();
+            onTranscript(lastTranscriptRef.current);
+            setTranscript('');
+          }
+        }, 1500);
+      } else if (interimTranscript.trim()) {
+        console.log('[VoiceMode] Interim:', interimTranscript.substring(0, 30));
+        setTranscript(interimTranscript);
       }
     };
 
@@ -149,16 +165,22 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended', {
-        hasSubmitted: hasSubmittedTranscriptRef.current,
-        isProcessing: isProcessingTranscriptRef.current,
-        currentListeningState: isListening
-      });
-      if (!hasSubmittedTranscriptRef.current && !isProcessingTranscriptRef.current) {
-        console.log('[VoiceMode] Setting isListening to false (no transcript submitted)');
+      console.log('[VoiceMode] Recognition ended, hasSubmitted:', hasSubmittedTranscriptRef.current);
+      if (hasSubmittedTranscriptRef.current) {
+        console.log('[VoiceMode] Transcript submitted, will restart after TTS');
         setIsListening(false);
       } else {
-        console.log('[VoiceMode] Keeping listening state (transcript was submitted, will restart after processing)');
+        console.log('[VoiceMode] No transcript, restarting immediately');
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (err) {
+              console.log('[VoiceMode] Restart failed');
+            }
+          }
+        }, 100);
       }
     };
 
