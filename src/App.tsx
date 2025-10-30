@@ -684,63 +684,6 @@ function App() {
         throw new Error('No text to speak');
       }
 
-      if (isMobile) {
-        console.log('[TTS] 📱 Mobile detected - using instant browser TTS');
-        return new Promise<void>((resolve) => {
-          if (!window.speechSynthesis) {
-            console.error('[TTS] Browser TTS not available');
-            isSpeakingRef.current = false;
-            setIsSpeaking(false);
-            resolve();
-            return;
-          }
-
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 1.1;
-          utterance.pitch = 1.0;
-          utterance.volume = 1.0;
-
-          const voices = window.speechSynthesis.getVoices();
-          const preferredVoice = voices.find(v =>
-            v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Karen'))
-          ) || voices.find(v => v.lang.startsWith('en'));
-
-          if (preferredVoice) {
-            utterance.voice = preferredVoice;
-          }
-
-          utterance.onstart = () => {
-            console.log('[TTS] 📱 Browser TTS started');
-            startSpeechVisualization();
-          };
-
-          utterance.onend = () => {
-            console.log('[TTS] 📱 Browser TTS complete');
-            isSpeakingRef.current = false;
-            setIsSpeaking(false);
-            setResponseAudioLevel(0);
-            setIsVoiceProcessing(false);
-            setIsGenerating(false);
-            stopSpeechVisualization();
-            resolve();
-          };
-
-          utterance.onerror = (error) => {
-            console.error('[TTS] 📱 Browser TTS error:', error);
-            isSpeakingRef.current = false;
-            setIsSpeaking(false);
-            setResponseAudioLevel(0);
-            setIsVoiceProcessing(false);
-            setIsGenerating(false);
-            stopSpeechVisualization();
-            resolve();
-          };
-
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-        });
-      }
-
       console.log('[TTS] Calling Murf TTS API with timeout...');
       try {
         const controller = new AbortController();
