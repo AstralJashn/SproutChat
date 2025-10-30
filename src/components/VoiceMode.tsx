@@ -277,7 +277,7 @@ export function VoiceMode({
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            sampleRate: 44100,
+            sampleRate: 16000,
             channelCount: 1
           }
         }
@@ -286,7 +286,7 @@ export function VoiceMode({
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            sampleRate: 48000
+            sampleRate: 24000
           }
         };
 
@@ -301,7 +301,7 @@ export function VoiceMode({
             ? 'audio/mp4'
             : 'audio/webm';
 
-          const bitrate = isMobile ? 64000 : 128000;
+          const bitrate = isMobile ? 32000 : 64000;
 
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
@@ -452,7 +452,7 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
-        const sampleRate = isMobile ? 22050 : 48000;
+        const sampleRate = isMobile ? 16000 : 24000;
         audioContextRef.current = new AudioContext({
           latencyHint: 'interactive',
           sampleRate
@@ -461,9 +461,9 @@ export function VoiceMode({
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
 
-        analyserRef.current.fftSize = isMobile ? 64 : 512;
+        analyserRef.current.fftSize = isMobile ? 64 : 256;
         analyserRef.current.maxDecibels = isMobile ? -15 : -10;
-        analyserRef.current.smoothingTimeConstant = isMobile ? 0.6 : 0.85;
+        analyserRef.current.smoothingTimeConstant = isMobile ? 0.5 : 0.7;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
 
@@ -475,7 +475,7 @@ export function VoiceMode({
         const updateAudioLevel = () => {
           if (!analyserRef.current || !audioContextRef.current) return;
 
-          if (isMobile && isProcessing) {
+          if (isProcessing || isSpeaking) {
             return;
           }
 
@@ -489,12 +489,12 @@ export function VoiceMode({
           let count = 0;
 
           if (isMobile) {
-            for (let i = 1; i < 6; i++) {
+            for (let i = 1; i < 5; i++) {
               sum += dataArray[i];
               count++;
             }
           } else {
-            for (let i = 2; i < 20; i++) {
+            for (let i = 2; i < 12; i++) {
               sum += dataArray[i];
               count++;
             }
