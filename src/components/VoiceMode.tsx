@@ -41,6 +41,7 @@ export function VoiceMode({
   const hasSubmittedTranscriptRef = useRef(false);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTranscriptRef = useRef('');
+  const isRestartingRef = useRef(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const backgroundSparks = useMemo(() => {
@@ -106,6 +107,7 @@ export function VoiceMode({
 
     recognition.onstart = () => {
       console.log('[VoiceMode] Recognition started');
+      isRestartingRef.current = false;
       setIsListening(true);
     };
 
@@ -165,22 +167,30 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended, hasSubmitted:', hasSubmittedTranscriptRef.current);
+      console.log('[VoiceMode] Recognition ended, hasSubmitted:', hasSubmittedTranscriptRef.current, 'isRestarting:', isRestartingRef.current);
+
       if (hasSubmittedTranscriptRef.current) {
         console.log('[VoiceMode] Transcript submitted, will restart after TTS');
+        isRestartingRef.current = false;
         setIsListening(false);
-      } else {
+      } else if (!isRestartingRef.current) {
         console.log('[VoiceMode] No transcript, restarting immediately');
+        isRestartingRef.current = true;
         setTimeout(() => {
-          if (recognitionRef.current) {
+          if (recognitionRef.current && !hasSubmittedTranscriptRef.current) {
             try {
               recognitionRef.current.start();
-              setIsListening(true);
+              console.log('[VoiceMode] Recognition restarted');
             } catch (err) {
-              console.log('[VoiceMode] Restart failed');
+              console.log('[VoiceMode] Restart failed:', err);
+              isRestartingRef.current = false;
             }
+          } else {
+            isRestartingRef.current = false;
           }
-        }, 100);
+        }, 200);
+      } else {
+        console.log('[VoiceMode] Already restarting, ignoring onend');
       }
     };
 
