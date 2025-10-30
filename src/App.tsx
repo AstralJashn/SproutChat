@@ -525,6 +525,9 @@ function App() {
 
         if (wasStreamed) {
           setIsGenerating(false);
+          if (isFromVoice) {
+            setIsVoiceProcessing(false);
+          }
 
           if (navigationData) {
             setMessages((prev) =>
@@ -554,6 +557,10 @@ function App() {
               setTimeout(streamText, delay);
             } else if (isMountedRef.current) {
               setIsGenerating(false);
+
+              if (isFromVoice) {
+                setIsVoiceProcessing(false);
+              }
 
             console.log('[Stream] \ud83c\udfc1 TEXT STREAMING COMPLETE', {
               isFromVoice,
