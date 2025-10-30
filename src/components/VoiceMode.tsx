@@ -92,12 +92,30 @@ export function VoiceMode({
       return;
     }
     recognitionRef.current = recognition;
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
+      console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
+    };
+
+    recognition.onaudiostart = () => {
+      console.log('[VoiceMode] 🎤 Audio capture started');
+    };
+
+    recognition.onsoundstart = () => {
+      console.log('[VoiceMode] 🔊 Sound detected by recognition');
+    };
+
+    recognition.onspeechstart = () => {
+      console.log('[VoiceMode] 🗣️ Speech detected by recognition');
+    };
+
+    recognition.onspeechend = () => {
+      console.log('[VoiceMode] 🗣️ Speech ended');
     };
 
     recognition.onresult = (event: any) => {
@@ -151,6 +169,7 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
+      console.log('[VoiceMode] Recognition ended');
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -159,23 +178,24 @@ export function VoiceMode({
       const shouldSubmit = lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current;
 
       if (shouldSubmit) {
-        console.log('[VoiceMode] Submitting transcript, parent will set isProcessing=true');
+        console.log('[VoiceMode] Submitting transcript:', lastTranscriptRef.current);
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         onTranscript(lastTranscriptRef.current);
         setTranscript('');
-      } else {
-        console.log('[VoiceMode] Recognition ended, restarting in 300ms');
+        lastTranscriptRef.current = '';
+      } else if (!isProcessingTranscriptRef.current) {
+        console.log('[VoiceMode] No transcript to submit, restarting recognition in 500ms');
         setTimeout(() => {
           if (recognitionRef.current && !isProcessingTranscriptRef.current) {
             try {
               recognitionRef.current.start();
-              console.log('[VoiceMode] Recognition restarted after natural end');
+              console.log('[VoiceMode] Recognition restarted');
             } catch (err) {
               console.error('[VoiceMode] Error restarting recognition:', err);
             }
           }
-        }, 300);
+        }, 500);
       }
     };
 
