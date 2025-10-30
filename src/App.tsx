@@ -1022,7 +1022,19 @@ function App() {
               </div>
             </div>
           ) : (
-            <div className="px-4 sm:px-4 pt-16 sm:pt-4 pb-3">
+            <div className="px-4 sm:px-4 pt-16 sm:pt-4 pb-3 relative">
+              <button
+                onClick={() => {
+                  setMessages([]);
+                  setInput('');
+                }}
+                className="fixed top-6 left-4 sm:left-6 z-20 w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white rounded-full shadow-lg hover:shadow-emerald-500/50 transition-all duration-200 active:scale-95 flex items-center justify-center"
+                title="New conversation"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+              </button>
               <div className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-4">
                 {messages.map((message) => (
                   <div
