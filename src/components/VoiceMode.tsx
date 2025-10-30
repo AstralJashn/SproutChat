@@ -441,7 +441,7 @@ export function VoiceMode({
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
 
-        analyserRef.current.fftSize = isMobile ? 64 : 512;
+        analyserRef.current.fftSize = isMobile ? 32 : 512;
         analyserRef.current.smoothingTimeConstant = isMobile ? 0.7 : 0.85;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
@@ -460,21 +460,23 @@ export function VoiceMode({
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          const sliceSize = isMobile ? 4 : 9;
-          let lowSum = 0;
-          let midSum = 0;
+          let sum = 0;
+          let count = 0;
 
-          for (let i = 2; i < 2 + sliceSize; i++) {
-            lowSum += dataArray[i];
+          if (isMobile) {
+            for (let i = 1; i < 6; i++) {
+              sum += dataArray[i];
+              count++;
+            }
+          } else {
+            for (let i = 2; i < 20; i++) {
+              sum += dataArray[i];
+              count++;
+            }
           }
-          for (let i = 2 + sliceSize; i < 2 + sliceSize * 2; i++) {
-            midSum += dataArray[i];
-          }
 
-          const lowAvg = lowSum / sliceSize;
-          const midAvg = midSum / sliceSize;
-
-          const weightedLevel = (lowAvg * 0.6 + midAvg * 0.4) * 1.5;
+          const avgLevel = sum / count;
+          const weightedLevel = avgLevel * (isMobile ? 1.3 : 1.5);
           const clampedLevel = Math.min(100, weightedLevel);
 
           if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 8 : 2)) {
@@ -504,7 +506,10 @@ export function VoiceMode({
             }
           }
 
-          if (speechDuration > 600 && silenceDuration > 1000) {
+          const minSpeechDuration = isMobile ? 400 : 600;
+          const minSilenceDuration = isMobile ? 800 : 1000;
+
+          if (speechDuration > minSpeechDuration && silenceDuration > minSilenceDuration) {
             if (mediaRecorderRef.current?.state === 'recording') {
               if (!isMobile) {
                 console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
@@ -528,23 +533,7 @@ export function VoiceMode({
         };
 
         if (isMobile) {
-          audioIntervalRef.current = setInterval(() => {
-            if (!analyserRef.current) return;
-
-            analyserRef.current.getByteFrequencyData(dataArray);
-
-            let sum = 0;
-            for (let i = 1; i < 6; i++) {
-              sum += dataArray[i];
-            }
-            const avgLevel = (sum / 5) * 1.2;
-            const clampedLevel = Math.min(100, avgLevel);
-
-            if (Math.abs(micAudioLevelRef.current - clampedLevel) > 10) {
-              micAudioLevelRef.current = clampedLevel;
-              setMicAudioLevel(clampedLevel);
-            }
-          }, 500);
+          audioIntervalRef.current = setInterval(updateAudioLevel, 300);
         } else {
           let frameCount = 0;
           const rafUpdate = () => {
