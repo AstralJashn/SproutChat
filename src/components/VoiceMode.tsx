@@ -46,6 +46,10 @@ export function VoiceMode({
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const actualMimeTypeRef = useRef<string>('audio/webm;codecs=opus');
+  const mobileSoundDetectedRef = useRef(false);
+  const mobileLastSoundTimeRef = useRef(Date.now());
+  const mobileSpeechStartTimeRef = useRef(0);
+  const mobileLastUpdateTimeRef = useRef(Date.now());
 
   const backgroundSparks = useMemo(() => {
     const count = isMobile ? 1 : 4;
@@ -698,10 +702,9 @@ export function VoiceMode({
 
       if (!audioIntervalRef.current) {
         console.log('[VoiceMode] 📱 Restarting audio interval on mobile');
-        let soundDetected = false;
-        let lastSoundTime = Date.now();
-        let speechStartTime = 0;
-        const lastUpdateTime = { current: Date.now() };
+
+        mobileLastSoundTimeRef.current = Date.now();
+        mobileSpeechStartTimeRef.current = 0;
 
         const updateAudioLevel = () => {
           if (!analyserRef.current || !audioContextRef.current) return;
@@ -724,29 +727,29 @@ export function VoiceMode({
 
           const now = Date.now();
           const shouldUpdate = Math.abs(micAudioLevelRef.current - clampedLevel) > 20 &&
-                              (now - lastUpdateTime.current) > 150;
+                              (now - mobileLastUpdateTimeRef.current) > 150;
 
           if (shouldUpdate) {
             micAudioLevelRef.current = clampedLevel;
-            lastUpdateTime.current = now;
+            mobileLastUpdateTimeRef.current = now;
             setMicAudioLevel(clampedLevel);
           } else {
             micAudioLevelRef.current = clampedLevel;
           }
 
-          if (!soundDetected && weightedLevel > 5) {
-            soundDetected = true;
+          if (!mobileSoundDetectedRef.current && weightedLevel > 5) {
+            mobileSoundDetectedRef.current = true;
           }
 
           if (weightedLevel > 8) {
-            lastSoundTime = Date.now();
-            if (speechStartTime === 0) {
-              speechStartTime = Date.now();
+            mobileLastSoundTimeRef.current = Date.now();
+            if (mobileSpeechStartTimeRef.current === 0) {
+              mobileSpeechStartTimeRef.current = Date.now();
             }
           }
 
-          const silenceDuration = Date.now() - lastSoundTime;
-          const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
+          const silenceDuration = Date.now() - mobileLastSoundTimeRef.current;
+          const speechDuration = mobileSpeechStartTimeRef.current > 0 ? Date.now() - mobileSpeechStartTimeRef.current : 0;
 
           if (audioContextRef.current && silenceDuration > 5000 && speechDuration === 0) {
             if (audioContextRef.current.state === 'running') {
@@ -759,10 +762,10 @@ export function VoiceMode({
 
           if (speechDuration > minSpeechDuration && silenceDuration > minSilenceDuration) {
             if (mediaRecorderRef.current?.state === 'recording') {
-              speechStartTime = 0;
+              mobileSpeechStartTimeRef.current = 0;
               mediaRecorderRef.current.stop();
             } else if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-              speechStartTime = 0;
+              mobileSpeechStartTimeRef.current = 0;
               try {
                 recognitionRef.current.stop();
               } catch (e) {
