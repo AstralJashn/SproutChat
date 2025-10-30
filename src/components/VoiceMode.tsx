@@ -431,27 +431,46 @@ export function VoiceMode({
 
   useEffect(() => {
     if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && !isRestartingRef.current) {
-      console.log('[VoiceMode] Response finished, restarting recognition...');
+      console.log('[VoiceMode] 🔄 Response finished, preparing to restart recognition...', {
+        isSpeaking,
+        isProcessing,
+        isListening,
+        isRestartingRef: isRestartingRef.current
+      });
+
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
       isRestartingRef.current = true;
 
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        console.log('[VoiceMode] Stopping MediaRecorder before restart');
+        mediaRecorderRef.current.stop();
+      }
+      audioChunksRef.current = [];
+
       setTimeout(() => {
-        if (recognitionRef.current && !isListening) {
+        if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
           try {
+            console.log('[VoiceMode] ✅ Attempting to restart recognition...');
             recognitionRef.current.start();
             setIsListening(true);
             isRestartingRef.current = false;
-            console.log('[VoiceMode] Recognition restarted after response');
+            console.log('[VoiceMode] ✅ Recognition restarted successfully after response');
           } catch (err: any) {
-            console.error('[VoiceMode] Error restarting:', err);
+            console.error('[VoiceMode] ❌ Error restarting recognition:', err);
             isRestartingRef.current = false;
           }
         } else {
+          console.log('[VoiceMode] ⚠️ Skipping restart - conditions changed', {
+            hasRecognition: !!recognitionRef.current,
+            isListening,
+            isSpeaking,
+            isProcessing
+          });
           isRestartingRef.current = false;
         }
-      }, 500);
+      }, 800);
     }
   }, [isSpeaking, isProcessing, isListening]);
 
