@@ -754,16 +754,36 @@ function App() {
             };
 
             return new Promise<void>((resolve) => {
-              audio.oncanplaythrough = async () => {
-                console.log('[TTS] ✅ Audio buffered and ready to play');
-                try {
+              let hasStarted = false;
+              const timeoutId = setTimeout(() => {
+                if (!hasStarted) {
+                  console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
+                  hasStarted = true;
                   isSpeakingRef.current = true;
-                  await audio.play();
-                  startSpeechVisualization();
-                  resolve();
-                } catch (playError) {
-                  console.error('[TTS] Play error:', playError);
-                  resolve();
+                  audio.play().then(() => {
+                    startSpeechVisualization();
+                    resolve();
+                  }).catch((err) => {
+                    console.error('[TTS] Timeout play error:', err);
+                    resolve();
+                  });
+                }
+              }, 2000);
+
+              audio.oncanplay = async () => {
+                if (!hasStarted) {
+                  clearTimeout(timeoutId);
+                  hasStarted = true;
+                  console.log('[TTS] ✅ Audio ready to play (fast path)');
+                  try {
+                    isSpeakingRef.current = true;
+                    await audio.play();
+                    startSpeechVisualization();
+                    resolve();
+                  } catch (playError) {
+                    console.error('[TTS] Play error:', playError);
+                    resolve();
+                  }
                 }
               };
 

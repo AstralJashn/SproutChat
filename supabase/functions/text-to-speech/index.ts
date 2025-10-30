@@ -73,8 +73,11 @@ Deno.serve(async (req: Request) => {
           voiceId: voiceId,
           style: "Conversational",
           modelVersion: "GEN2",
-          rate: 0,
-          pitch: 0
+          rate: 5,
+          pitch: 0,
+          format: "MP3",
+          sampleRate: 24000,
+          audioBitRate: 64
         }),
       }
     );
