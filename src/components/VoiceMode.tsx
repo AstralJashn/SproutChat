@@ -24,14 +24,6 @@ export function VoiceMode({
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [micAudioLevel, setMicAudioLevel] = useState(0);
-
-  useEffect(() => {
-    console.log('[VoiceMode] Props changed:', { isProcessing, isSpeaking });
-    if ((isProcessing || isSpeaking) && isListening) {
-      console.log('[VoiceMode] Setting isListening to false because parent is processing/speaking');
-      setIsListening(false);
-    }
-  }, [isProcessing, isSpeaking]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heartRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -109,12 +101,7 @@ export function VoiceMode({
     };
 
     recognition.onresult = (event: any) => {
-      console.log('[VoiceMode] ===== onresult fired =====');
-      console.log('[VoiceMode] isProcessingTranscriptRef:', isProcessingTranscriptRef.current);
-      console.log('[VoiceMode] hasSubmittedTranscriptRef:', hasSubmittedTranscriptRef.current);
-
       if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
-        console.log('[VoiceMode] ❌ Blocked: already processing or submitted');
         return;
       }
 
@@ -122,9 +109,6 @@ export function VoiceMode({
       for (let i = 0; i < event.results.length; i++) {
         fullTranscript += event.results[i][0].transcript;
       }
-
-      console.log('[VoiceMode] Transcript:', fullTranscript);
-      console.log('[VoiceMode] Transcript length:', fullTranscript.length);
 
       setTranscript(fullTranscript);
       lastTranscriptRef.current = fullTranscript;
@@ -134,73 +118,45 @@ export function VoiceMode({
       }
 
       const isFinal = event.results[event.results.length - 1].isFinal;
-      console.log('[VoiceMode] isFinal:', isFinal);
 
       if (isFinal && fullTranscript.trim()) {
-        console.log('[VoiceMode] ✅ SUBMITTING via isFinal');
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         recognition.stop();
         onTranscript(fullTranscript);
         setTranscript('');
       } else if (fullTranscript.trim()) {
-        console.log('[VoiceMode] Starting 2-second timer...');
         silenceTimerRef.current = setTimeout(() => {
-          console.log('[VoiceMode] 2-second timer fired!');
-          console.log('[VoiceMode] lastTranscript:', lastTranscriptRef.current);
           if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
-            console.log('[VoiceMode] ✅ SUBMITTING via timeout');
             isProcessingTranscriptRef.current = true;
             hasSubmittedTranscriptRef.current = true;
             recognition.stop();
             onTranscript(lastTranscriptRef.current);
             setTranscript('');
-          } else {
-            console.log('[VoiceMode] ❌ Timeout blocked:', {
-              hasTranscript: !!lastTranscriptRef.current.trim(),
-              isProcessing: isProcessingTranscriptRef.current,
-              hasSubmitted: hasSubmittedTranscriptRef.current
-            });
           }
         }, 2000);
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.log('[VoiceMode] ===== onerror fired =====');
-      console.log('[VoiceMode] Error type:', event.error);
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
         setIsListening(false);
       }
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] ===== onend fired =====');
-      console.log('[VoiceMode] lastTranscript:', lastTranscriptRef.current);
-      console.log('[VoiceMode] isProcessingTranscriptRef:', isProcessingTranscriptRef.current);
-      console.log('[VoiceMode] hasSubmittedTranscriptRef:', hasSubmittedTranscriptRef.current);
-
       if (silenceTimerRef.current) {
-        console.log('[VoiceMode] Clearing silence timer');
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
 
       if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
-        console.log('[VoiceMode] ✅ SUBMITTING transcript from onend:', lastTranscriptRef.current);
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         onTranscript(lastTranscriptRef.current);
         setTranscript('');
-      } else {
-        console.log('[VoiceMode] ❌ Not submitting from onend:', {
-          hasTranscript: !!lastTranscriptRef.current.trim(),
-          isProcessing: isProcessingTranscriptRef.current,
-          hasSubmitted: hasSubmittedTranscriptRef.current
-        });
       }
 
-      console.log('[VoiceMode] Setting isListening to false');
       setIsListening(false);
     };
 
@@ -262,16 +218,7 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
-    console.log('[VoiceMode] Props changed:', {
-      isSpeaking,
-      isProcessing,
-      hasSubmittedTranscript: hasSubmittedTranscriptRef.current,
-      hasRecognition: !!recognitionRef.current,
-      isListening
-    });
-
     if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && hasSubmittedTranscriptRef.current) {
-      console.log('[VoiceMode] ✅ TTS/Processing complete and not listening - restarting recognition');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
@@ -279,12 +226,9 @@ export function VoiceMode({
       setTimeout(() => {
         if (recognitionRef.current && !isListening) {
           try {
-            console.log('[VoiceMode] Starting recognition...');
             recognitionRef.current.start();
             setIsListening(true);
-            console.log('[VoiceMode] ✅ Recognition started successfully');
           } catch (err: any) {
-            console.error('[VoiceMode] Error starting recognition:', err);
             if (err.message && err.message.includes('already started')) {
               setIsListening(true);
             }
@@ -640,11 +584,7 @@ export function VoiceMode({
             <Mic className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-cyan-400 animate-pulse" />
           ) : null}
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">
-            {(() => {
-              const status = isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isListening ? 'Listening' : 'Ready';
-              console.log('[VoiceMode RENDER] Status:', status, { isSpeaking, isProcessing, isListening });
-              return status;
-            })()}
+            {isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isListening ? 'Listening' : 'Ready'}
           </h3>
         </div>
 
