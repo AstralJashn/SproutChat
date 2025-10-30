@@ -92,10 +92,16 @@ export function VoiceMode({
       return;
     }
     recognitionRef.current = recognition;
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.interimResults = false;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
+
+    console.log('[VoiceMode] Recognition configured:', {
+      continuous: recognition.continuous,
+      interimResults: recognition.interimResults,
+      lang: recognition.lang
+    });
 
     recognition.onstart = () => {
       console.log('[VoiceMode] ✓ Recognition started successfully');
@@ -119,6 +125,10 @@ export function VoiceMode({
     };
 
     recognition.onresult = (event: any) => {
+      console.log('[VoiceMode] ✅ onresult FIRED!', event);
+      console.log('[VoiceMode] event.results:', event.results);
+      console.log('[VoiceMode] event.results.length:', event.results.length);
+
       if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
         console.log('[VoiceMode] Ignoring result - already processing');
         return;
@@ -126,39 +136,22 @@ export function VoiceMode({
 
       let fullTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
-        fullTranscript += event.results[i][0].transcript;
+        const result = event.results[i];
+        console.log(`[VoiceMode] Result ${i}:`, result[0].transcript, 'confidence:', result[0].confidence);
+        fullTranscript += result[0].transcript;
       }
 
-      console.log('[VoiceMode] Got transcript:', fullTranscript);
+      console.log('[VoiceMode] ✅ Got transcript:', fullTranscript);
       setTranscript(fullTranscript);
       lastTranscriptRef.current = fullTranscript;
 
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-
-      const isFinal = event.results[event.results.length - 1].isFinal;
-      console.log('[VoiceMode] isFinal:', isFinal);
-
-      if (isFinal && fullTranscript.trim()) {
-        console.log('[VoiceMode] Final result - submitting immediately');
+      if (fullTranscript.trim()) {
+        console.log('[VoiceMode] Submitting transcript immediately');
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         recognition.stop();
         onTranscript(fullTranscript);
         setTranscript('');
-      } else if (fullTranscript.trim()) {
-        console.log('[VoiceMode] Interim result - setting 2s silence timer');
-        silenceTimerRef.current = setTimeout(() => {
-          if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
-            console.log('[VoiceMode] Silence timer fired - submitting transcript');
-            isProcessingTranscriptRef.current = true;
-            hasSubmittedTranscriptRef.current = true;
-            recognition.stop();
-            onTranscript(lastTranscriptRef.current);
-            setTranscript('');
-          }
-        }, 2000);
       }
     };
 
