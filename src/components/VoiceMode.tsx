@@ -150,14 +150,17 @@ export function VoiceMode({
         silenceTimerRef.current = null;
       }
 
-      if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+      const shouldSubmit = lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current;
+
+      if (shouldSubmit) {
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         onTranscript(lastTranscriptRef.current);
         setTranscript('');
+        setIsListening(false);
+      } else {
+        console.log('[VoiceMode] Recognition ended, keeping isListening true for auto-restart');
       }
-
-      setIsListening(false);
     };
 
     console.log('[VoiceMode] Attempting to start recognition...');
