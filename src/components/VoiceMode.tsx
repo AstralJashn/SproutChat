@@ -218,7 +218,10 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
+    console.log('[VoiceMode] Restart check:', { isSpeaking, isProcessing, isListening, hasSubmitted: hasSubmittedTranscriptRef.current, hasRecognition: !!recognitionRef.current });
+
     if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && hasSubmittedTranscriptRef.current) {
+      console.log('[VoiceMode] ✅ RESTARTING recognition...');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
@@ -226,9 +229,12 @@ export function VoiceMode({
       setTimeout(() => {
         if (recognitionRef.current) {
           try {
+            console.log('[VoiceMode] Calling recognition.start()');
             recognitionRef.current.start();
             setIsListening(true);
+            console.log('[VoiceMode] ✅ Recognition restarted successfully');
           } catch (err: any) {
+            console.error('[VoiceMode] ❌ Error restarting:', err);
             if (err.message && err.message.includes('already started')) {
               setIsListening(true);
             }
