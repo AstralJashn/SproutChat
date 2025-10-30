@@ -159,7 +159,9 @@ export function VoiceMode({
         setTranscript('');
         setIsListening(false);
       } else {
-        console.log('[VoiceMode] Recognition ended, keeping isListening true for auto-restart');
+        console.log('[VoiceMode] Recognition ended, will auto-restart');
+        isRestartingRef.current = true;
+        setIsListening(false);
       }
     };
 
@@ -221,29 +223,50 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
-    console.log('[VoiceMode] Restart check:', { isSpeaking, isProcessing, isListening, hasSubmitted: hasSubmittedTranscriptRef.current, hasRecognition: !!recognitionRef.current });
+    console.log('[VoiceMode] Restart check:', { isSpeaking, isProcessing, isListening, isRestarting: isRestartingRef.current, hasSubmitted: hasSubmittedTranscriptRef.current, hasRecognition: !!recognitionRef.current });
 
     if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening) {
-      console.log('[VoiceMode] ✅ RESTARTING recognition...');
-      hasSubmittedTranscriptRef.current = false;
-      isProcessingTranscriptRef.current = false;
-      lastTranscriptRef.current = '';
+      if (isRestartingRef.current) {
+        console.log('[VoiceMode] ✅ RESTARTING recognition (auto-restart - no visual change)...');
+        hasSubmittedTranscriptRef.current = false;
+        isProcessingTranscriptRef.current = false;
+        lastTranscriptRef.current = '';
+        setIsListening(true);
+        isRestartingRef.current = false;
 
-      setTimeout(() => {
-        if (recognitionRef.current) {
-          try {
-            console.log('[VoiceMode] Calling recognition.start()');
-            recognitionRef.current.start();
-            setIsListening(true);
-            console.log('[VoiceMode] ✅ Recognition restarted successfully');
-          } catch (err: any) {
-            console.error('[VoiceMode] ❌ Error restarting:', err);
-            if (err.message && err.message.includes('already started')) {
-              setIsListening(true);
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            try {
+              console.log('[VoiceMode] Calling recognition.start()');
+              recognitionRef.current.start();
+              console.log('[VoiceMode] ✅ Recognition restarted successfully');
+            } catch (err: any) {
+              console.error('[VoiceMode] ❌ Error restarting:', err);
             }
           }
-        }
-      }, 500);
+        }, 100);
+      } else {
+        console.log('[VoiceMode] ✅ RESTARTING recognition (after response)...');
+        hasSubmittedTranscriptRef.current = false;
+        isProcessingTranscriptRef.current = false;
+        lastTranscriptRef.current = '';
+
+        setTimeout(() => {
+          if (recognitionRef.current) {
+            try {
+              console.log('[VoiceMode] Calling recognition.start()');
+              recognitionRef.current.start();
+              setIsListening(true);
+              console.log('[VoiceMode] ✅ Recognition restarted successfully');
+            } catch (err: any) {
+              console.error('[VoiceMode] ❌ Error restarting:', err);
+              if (err.message && err.message.includes('already started')) {
+                setIsListening(true);
+              }
+            }
+          }
+        }, 500);
+      }
     }
   }, [isSpeaking, isProcessing, isListening]);
 
