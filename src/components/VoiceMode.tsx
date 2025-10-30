@@ -216,18 +216,11 @@ export function VoiceMode({
         fullTranscript += result[0].transcript;
       }
 
-      console.log('[VoiceMode] ✅ Got transcript:', fullTranscript);
+      console.log('[VoiceMode] ✅ Got browser transcript (for display only):', fullTranscript);
       setTranscript(fullTranscript);
       lastTranscriptRef.current = fullTranscript;
 
-      if (fullTranscript.trim()) {
-        console.log('[VoiceMode] Submitting transcript immediately');
-        isProcessingTranscriptRef.current = true;
-        hasSubmittedTranscriptRef.current = true;
-        recognition.stop();
-        onTranscript(fullTranscript);
-        setTranscript('');
-      }
+      console.log('[VoiceMode] Browser transcript received - will wait for Whisper for accurate transcription');
     };
 
     recognition.onerror = (event: any) => {
@@ -241,34 +234,13 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended');
+      console.log('[VoiceMode] Recognition ended - waiting for Whisper transcription');
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
 
-      const shouldSubmit = lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current;
-
-      if (shouldSubmit) {
-        console.log('[VoiceMode] Submitting transcript:', lastTranscriptRef.current);
-        isProcessingTranscriptRef.current = true;
-        hasSubmittedTranscriptRef.current = true;
-        onTranscript(lastTranscriptRef.current);
-        setTranscript('');
-        lastTranscriptRef.current = '';
-      } else if (!isProcessingTranscriptRef.current) {
-        console.log('[VoiceMode] No transcript to submit, restarting recognition in 500ms');
-        setTimeout(() => {
-          if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-            try {
-              recognitionRef.current.start();
-              console.log('[VoiceMode] Recognition restarted');
-            } catch (err) {
-              console.error('[VoiceMode] Error restarting recognition:', err);
-            }
-          }
-        }, 500);
-      }
+      console.log('[VoiceMode] Browser recognition ended, Whisper will handle transcription');
     };
 
     const audioConstraints = isMobile
