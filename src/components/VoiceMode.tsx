@@ -100,7 +100,7 @@ export function VoiceMode({
       return;
     }
     recognitionRef.current = recognition;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
@@ -126,12 +126,23 @@ export function VoiceMode({
       }
 
       const isFinal = event.results[event.results.length - 1].isFinal;
+
       if (isFinal && fullTranscript.trim()) {
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         recognition.stop();
         onTranscript(fullTranscript);
         setTranscript('');
+      } else if (fullTranscript.trim()) {
+        silenceTimerRef.current = setTimeout(() => {
+          if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+            isProcessingTranscriptRef.current = true;
+            hasSubmittedTranscriptRef.current = true;
+            recognition.stop();
+            onTranscript(lastTranscriptRef.current);
+            setTranscript('');
+          }
+        }, 2000);
       }
     };
 
@@ -142,9 +153,7 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      if (hasSubmittedTranscriptRef.current) {
-        setIsListening(false);
-      }
+      setIsListening(false);
     };
 
     console.log('[VoiceMode] Attempting to start recognition...');
