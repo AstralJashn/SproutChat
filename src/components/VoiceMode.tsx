@@ -748,7 +748,7 @@ export function VoiceMode({
 
       ctx.clearRect(0, 0, width, height);
 
-      const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevel / 100) : isListening && micAudioLevel > 20 ? Math.min(1, micAudioLevel / 100) : 0.3;
+      const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevelRef.current / 100) : isListening && micAudioLevel > 20 ? Math.min(1, micAudioLevel / 100) : 0.3;
       const rippleInterval = isSpeaking ? 1000 : isListening && micAudioLevel > 25 ? Math.max(800, 1200 - (micAudioLevel * 2)) : 2500;
 
       if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
@@ -791,7 +791,7 @@ export function VoiceMode({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel, isMobile]);
+  }, [isSpeaking, isListening, micAudioLevel, isMobile, responseAudioLevelRef]);
 
   useEffect(() => {
     if (!heartRef.current) return;
@@ -821,7 +821,7 @@ export function VoiceMode({
       }
 
       if (isSpeaking) {
-        const intensity = Math.max(0.3, responseAudioLevel / 100);
+        const intensity = Math.max(0.3, responseAudioLevelRef.current / 100);
         targetScale = 1 + intensity * 0.15;
         currentScale = currentScale * 0.7 + targetScale * 0.3;
         heartRef.current.style.transform = `scale(${currentScale})`;
@@ -852,7 +852,7 @@ export function VoiceMode({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel, isMobile]);
+  }, [isSpeaking, isListening, micAudioLevel, isMobile, responseAudioLevelRef]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
