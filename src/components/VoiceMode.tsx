@@ -122,25 +122,45 @@ export function VoiceMode({
     }
 
     recognition.onstart = () => {
-      if (!isMobile) console.log('[VoiceMode] ✓ Recognition started successfully');
+      console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
 
       if (mediaRecorderRef.current) {
-        if (!isMobile) console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
+        console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
         if (mediaRecorderRef.current.state === 'inactive') {
           audioChunksRef.current = [];
           try {
             const chunkSize = isMobile ? 300 : 100;
             mediaRecorderRef.current.start(chunkSize);
-            if (!isMobile) console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
+            console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
           } catch (e) {
             console.error('[VoiceMode] ❌ Failed to start MediaRecorder:', e);
           }
         } else {
-          if (!isMobile) console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
+          console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
         }
       } else {
         console.error('[VoiceMode] ❌ MediaRecorder ref is null!');
+      }
+
+      if (isMobile && silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+
+      if (isMobile) {
+        console.log('[VoiceMode] 📱 Setting 8 second safety timeout on mobile');
+        silenceTimerRef.current = setTimeout(() => {
+          console.log('[VoiceMode] ⏰ Mobile safety timeout triggered - forcing MediaRecorder stop');
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+          } else if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop();
+            } catch (e) {
+              console.error('[VoiceMode] Error stopping recognition on timeout:', e);
+            }
+          }
+        }, 8000);
       }
     };
 
