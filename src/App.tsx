@@ -856,7 +856,7 @@ function App() {
       if (!isSpeakingRef.current) return;
 
       frameCount++;
-      if (isMobileDev && frameCount % 3 !== 0) {
+      if (isMobileDev && frameCount % 2 !== 0) {
         animationFrameRef.current = requestAnimationFrame(animate);
         return;
       }
@@ -864,14 +864,14 @@ function App() {
       const deltaTime = (timestamp - lastTimestamp) / 16.67;
       lastTimestamp = timestamp;
 
-      currentLevel += 0.025 * pulseDirection * deltaTime;
-      if (currentLevel >= 0.85) {
+      currentLevel += 0.03 * pulseDirection * deltaTime;
+      if (currentLevel >= 0.8) {
         pulseDirection = -1;
-        currentLevel = 0.85;
+        currentLevel = 0.8;
       }
-      if (currentLevel <= 0.35) {
+      if (currentLevel <= 0.4) {
         pulseDirection = 1;
-        currentLevel = 0.35;
+        currentLevel = 0.4;
       }
 
       setResponseAudioLevel(Math.round(currentLevel * 100));

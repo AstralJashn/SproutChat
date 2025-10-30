@@ -721,9 +721,9 @@ export function VoiceMode({
     let lastRippleTime = 0;
     let lastFrameTime = 0;
     const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
-    const targetFPS = isMobile ? 10 : 30;
+    const targetFPS = isMobile ? 15 : 30;
     const frameInterval = 1000 / targetFPS;
-    const maxRipples = isMobile ? 1 : 6;
+    const maxRipples = isMobile ? 1 : 4;
 
     const animate = (timestamp: number) => {
       if (isMobile && isSpeaking) {
@@ -741,13 +741,13 @@ export function VoiceMode({
       ctx.clearRect(0, 0, width, height);
 
       const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevel / 100) : isListening && micAudioLevel > 20 ? Math.min(1, micAudioLevel / 100) : 0.3;
-      const rippleInterval = isSpeaking ? 600 : isListening && micAudioLevel > 25 ? Math.max(400, 800 - (micAudioLevel * 2)) : 2000;
+      const rippleInterval = isSpeaking ? 800 : isListening && micAudioLevel > 25 ? Math.max(600, 1000 - (micAudioLevel * 2)) : 2000;
 
       if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
         if (ripples.length < maxRipples) {
           ripples.push({
             radius: 0,
-            opacity: isMobile ? 0.4 : 0.5,
+            opacity: isMobile ? 0.35 : 0.45,
             maxRadius: isMobile ? 180 : 250
           });
         }
@@ -757,37 +757,19 @@ export function VoiceMode({
       for (let i = ripples.length - 1; i >= 0; i--) {
         const ripple = ripples[i];
 
-        ripple.radius += isMobile ? 3 : 1.5 * audioIntensity;
-        ripple.opacity -= isMobile ? 0.01 : 0.004;
+        ripple.radius += isMobile ? 4 : 2 * audioIntensity;
+        ripple.opacity -= isMobile ? 0.015 : 0.006;
 
         if (ripple.opacity <= 0 || ripple.radius > ripple.maxRadius) {
           ripples.splice(i, 1);
           continue;
         }
 
-        if (isMobile) {
-          ctx.strokeStyle = (isSpeaking || isListening)
-            ? `rgba(16, 185, 129, ${ripple.opacity * 0.3})`
-            : `rgba(156, 163, 175, ${ripple.opacity * 0.2})`;
-          ctx.lineWidth = 1;
-        } else {
-          const gradient = ctx.createRadialGradient(
-            centerX, centerY, Math.max(0, ripple.radius - 1),
-            centerX, centerY, Math.max(1, ripple.radius + 1)
-          );
-
-          if (isSpeaking || isListening) {
-            gradient.addColorStop(0, `rgba(16, 185, 129, ${ripple.opacity * 0.5})`);
-            gradient.addColorStop(0.5, `rgba(6, 182, 212, ${ripple.opacity * 0.6})`);
-            gradient.addColorStop(1, `rgba(16, 185, 129, ${ripple.opacity * 0.3})`);
-          } else {
-            gradient.addColorStop(0, `rgba(156, 163, 175, ${ripple.opacity * 0.3})`);
-            gradient.addColorStop(1, `rgba(107, 114, 128, ${ripple.opacity * 0.15})`);
-          }
-
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 2;
-        }
+        const activeColor = (isSpeaking || isListening);
+        ctx.strokeStyle = activeColor
+          ? `rgba(16, 185, 129, ${ripple.opacity * 0.4})`
+          : `rgba(156, 163, 175, ${ripple.opacity * 0.25})`;
+        ctx.lineWidth = isMobile ? 1 : 1.5;
         ctx.beginPath();
         ctx.arc(centerX, centerY, ripple.radius, 0, Math.PI * 2);
         ctx.stroke();
@@ -811,7 +793,7 @@ export function VoiceMode({
     let currentScale = 1;
     let targetScale = 1;
     let frameCount = 0;
-    const frameSkip = isMobile ? 5 : 1;
+    const frameSkip = isMobile ? 3 : 2;
 
     const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
@@ -825,22 +807,22 @@ export function VoiceMode({
       }
 
       frameCount++;
-      if (isMobile && frameCount % frameSkip !== 0) {
+      if (frameCount % frameSkip !== 0) {
         animationFrame = requestAnimationFrame(animateBeat);
         return;
       }
 
       if (isSpeaking) {
         const intensity = Math.max(0.3, responseAudioLevel / 100);
-        targetScale = 1 + intensity * 0.2;
-        currentScale = currentScale * 0.8 + targetScale * 0.2;
+        targetScale = 1 + intensity * 0.15;
+        currentScale = currentScale * 0.7 + targetScale * 0.3;
         heartRef.current.style.transform = `scale(${currentScale})`;
       } else if (isListening && micAudioLevel > 15) {
         const intensity = Math.min(1, micAudioLevel / 80);
-        const dynamicBeatInterval = 200 - (intensity * 80);
+        const dynamicBeatInterval = 250 - (intensity * 80);
 
         if (timestamp - lastBeatTime > dynamicBeatInterval) {
-          targetScale = 1.15 + intensity * 0.4;
+          targetScale = 1.12 + intensity * 0.3;
           lastBeatTime = timestamp;
         } else if (timestamp - lastBeatTime > dynamicBeatInterval / 2) {
           targetScale = 1.0;
