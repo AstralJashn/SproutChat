@@ -35,6 +35,8 @@ export function VoiceMode({
   const lastTranscriptRef = useRef('');
   const isRestartingRef = useRef(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const backgroundSparks = useMemo(() => {
     return [...Array(6)].map((_, i) => ({
@@ -106,6 +108,12 @@ export function VoiceMode({
     recognition.onstart = () => {
       console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+        audioChunksRef.current = [];
+        mediaRecorderRef.current.start(100);
+        console.log('[VoiceMode] MediaRecorder started');
+      }
     };
 
     recognition.onaudiostart = () => {
@@ -122,6 +130,24 @@ export function VoiceMode({
 
     recognition.onspeechend = () => {
       console.log('[VoiceMode] 🗣️ Speech ended');
+
+      setTimeout(() => {
+        if (!lastTranscriptRef.current.trim()) {
+          console.log('[VoiceMode] ⚠️ Speech ended but no transcript captured - Chrome bug detected');
+          console.log('[VoiceMode] Stopping MediaRecorder and will try Whisper fallback');
+
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            mediaRecorderRef.current.stop();
+            console.log('[VoiceMode] MediaRecorder stopped for fallback');
+          }
+
+          try {
+            recognition.stop();
+          } catch (e) {
+            console.error('[VoiceMode] Error stopping after speechend:', e);
+          }
+        }
+      }, 100);
     };
 
     recognition.onresult = (event: any) => {
@@ -199,6 +225,89 @@ export function VoiceMode({
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((stream) => {
         console.log('[VoiceMode] ✓ Microphone permission granted');
+
+        try {
+          mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+          mediaRecorderRef.current.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              audioChunksRef.current.push(event.data);
+              console.log('[VoiceMode] Audio chunk recorded:', event.data.size, 'bytes');
+            }
+          };
+
+          mediaRecorderRef.current.onstop = async () => {
+            console.log('[VoiceMode] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
+
+            if (audioChunksRef.current.length > 0 && !lastTranscriptRef.current.trim()) {
+              console.log('[VoiceMode] 🔄 Fallback: Sending audio to Whisper API');
+
+              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              audioChunksRef.current = [];
+
+              try {
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'audio.webm');
+                formData.append('model', 'whisper-large-v3');
+                formData.append('language', 'en');
+
+                const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+                  },
+                  body: formData
+                });
+
+                if (response.ok) {
+                  const result = await response.json();
+                  const text = result.text?.trim();
+
+                  if (text) {
+                    console.log('[VoiceMode] ✅ Whisper fallback transcript:', text);
+                    lastTranscriptRef.current = text;
+                    setTranscript(text);
+
+                    if (!isProcessingTranscriptRef.current) {
+                      isProcessingTranscriptRef.current = true;
+                      hasSubmittedTranscriptRef.current = true;
+                      onTranscript(text);
+                      setTranscript('');
+                      lastTranscriptRef.current = '';
+                    }
+                  } else {
+                    console.log('[VoiceMode] Whisper returned empty transcript');
+                    setTimeout(() => {
+                      if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+                        recognitionRef.current.start();
+                      }
+                    }, 500);
+                  }
+                } else {
+                  console.error('[VoiceMode] Whisper API error:', response.status);
+                  setTimeout(() => {
+                    if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+                      recognitionRef.current.start();
+                    }
+                  }, 500);
+                }
+              } catch (err) {
+                console.error('[VoiceMode] Whisper fallback error:', err);
+                setTimeout(() => {
+                  if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+                    recognitionRef.current.start();
+                  }
+                }, 500);
+              }
+            } else {
+              audioChunksRef.current = [];
+            }
+          };
+
+          console.log('[VoiceMode] MediaRecorder initialized');
+        } catch (err) {
+          console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
+        }
 
         audioContextRef.current = new AudioContext();
         analyserRef.current = audioContextRef.current.createAnalyser();
