@@ -791,6 +791,10 @@ function App() {
                     console.error('[TTS] Timeout play error:', err);
                     isSpeakingRef.current = false;
                     setIsSpeaking(false);
+                    responseAudioLevelRef.current = 0;
+                    setIsVoiceProcessing(false);
+                    setIsGenerating(false);
+                    stopSpeechVisualization();
                     resolve();
                   });
                 }
@@ -814,6 +818,10 @@ function App() {
                     console.error('[TTS] Play error:', playError);
                     isSpeakingRef.current = false;
                     setIsSpeaking(false);
+                    responseAudioLevelRef.current = 0;
+                    setIsVoiceProcessing(false);
+                    setIsGenerating(false);
+                    stopSpeechVisualization();
                     resolve();
                   }
                 }
@@ -846,7 +854,11 @@ function App() {
 
     } catch (error: any) {
       console.error('[TTS] Fatal error:', error);
+      isSpeakingRef.current = false;
       setIsSpeaking(false);
+      responseAudioLevelRef.current = 0;
+      setIsVoiceProcessing(false);
+      setIsGenerating(false);
       setErrorNotification('Voice playback failed');
       setTimeout(() => setErrorNotification(null), 3000);
     }
