@@ -724,15 +724,12 @@ function App() {
           if (jsonData.success && jsonData.audioUrl) {
             console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
             const audio = new Audio();
-            audio.preload = isMobile ? 'none' : 'auto';
+            audio.preload = 'auto';
             audio.crossOrigin = 'anonymous';
             audio.volume = 1.0;
             audio.playbackRate = 1.0;
-            if (isMobile) {
-              audio.setAttribute('playsinline', 'true');
-              audio.setAttribute('webkit-playsinline', 'true');
-              audio.autoplay = false;
-            }
+            audio.setAttribute('playsinline', 'true');
+            audio.setAttribute('webkit-playsinline', 'true');
             currentAudioRef.current = audio;
 
             audio.onended = () => {
@@ -770,17 +767,21 @@ function App() {
             return new Promise<void>((resolve) => {
               let hasStarted = false;
               let hasLoaded = false;
-              const bufferTimeout = isMobile ? 3000 : 1500;
+              const bufferTimeout = isMobile ? 5000 : 1500;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
                   console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
                   hasStarted = true;
+                  console.log('[TTS] Force starting due to timeout');
                   isSpeakingRef.current = true;
                   audio.play().then(() => {
+                    console.log('[TTS] Audio playing after timeout');
                     startSpeechVisualization();
                     resolve();
                   }).catch((err) => {
                     console.error('[TTS] Timeout play error:', err);
+                    isSpeakingRef.current = false;
+                    setIsSpeaking(false);
                     resolve();
                   });
                 }
@@ -798,14 +799,14 @@ function App() {
                   console.log('[TTS] ✅ Audio buffered and ready (canplaythrough)');
                   try {
                     isSpeakingRef.current = true;
-                    if (isMobile) {
-                      await new Promise(r => setTimeout(r, 50));
-                    }
+                    console.log('[TTS] Starting playback from canplaythrough');
                     await audio.play();
                     startSpeechVisualization();
                     resolve();
                   } catch (playError) {
                     console.error('[TTS] Play error:', playError);
+                    isSpeakingRef.current = false;
+                    setIsSpeaking(false);
                     resolve();
                   }
                 }
@@ -813,7 +814,7 @@ function App() {
 
               audio.oncanplay = async () => {
                 if (!hasStarted && hasLoaded) {
-                  await new Promise(r => setTimeout(r, isMobile ? 300 : 100));
+                  await new Promise(r => setTimeout(r, 100));
                   if (!hasStarted) {
                     clearTimeout(timeoutId);
                     hasStarted = true;
@@ -825,6 +826,8 @@ function App() {
                       resolve();
                     } catch (playError) {
                       console.error('[TTS] Play error:', playError);
+                      isSpeakingRef.current = false;
+                      setIsSpeaking(false);
                       resolve();
                     }
                   }
@@ -832,9 +835,8 @@ function App() {
               };
 
               audio.src = jsonData.audioUrl;
-              if (!isMobile) {
-                audio.load();
-              }
+              console.log('[TTS] Loading audio from:', jsonData.audioUrl.substring(0, 50) + '...');
+              audio.load();
             });
           }
 
@@ -870,10 +872,19 @@ function App() {
     let pulseDirection = 1;
     let currentLevel = 0;
     let lastTimestamp = performance.now();
+    let frameCount = 0;
     isSpeakingRef.current = true;
+
+    const isMobileDev = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
     const animate = (timestamp: number) => {
       if (!isSpeakingRef.current) return;
+
+      frameCount++;
+      if (isMobileDev && frameCount % 3 !== 0) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+        return;
+      }
 
       const deltaTime = (timestamp - lastTimestamp) / 16.67;
       lastTimestamp = timestamp;
