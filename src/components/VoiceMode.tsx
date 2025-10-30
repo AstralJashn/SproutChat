@@ -145,10 +145,17 @@ export function VoiceMode({
           console.log('[VoiceMode] ✓ Submitting transcript:', lastTranscriptRef.current.substring(0, 50));
           isProcessingTranscriptRef.current = true;
           hasSubmittedTranscriptRef.current = true;
+          console.log('[VoiceMode] 🔒 Set hasSubmittedTranscriptRef to TRUE');
           recognition.stop();
           console.log('[VoiceMode] Calling onTranscript callback...');
           onTranscript(lastTranscriptRef.current);
           setTranscript('');
+        } else {
+          console.log('[VoiceMode] ❌ Silence timer fired but NOT submitting:', {
+            hasTranscript: !!lastTranscriptRef.current.trim(),
+            isProcessingTranscript: isProcessingTranscriptRef.current,
+            hasSubmittedTranscript: hasSubmittedTranscriptRef.current
+          });
         }
         silenceTimerRef.current = null;
       }, 5000);
