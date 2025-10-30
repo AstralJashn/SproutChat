@@ -626,11 +626,17 @@ export function VoiceMode({
       setTimeout(() => {
         if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
           try {
-            console.log('[VoiceMode] ✅ Attempting to restart recognition...');
+            console.log('[VoiceMode] ✅ Attempting to restart recognition and MediaRecorder...');
             recognitionRef.current.start();
+
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
+              mediaRecorderRef.current.start();
+              console.log('[VoiceMode] ✅ MediaRecorder restarted');
+            }
+
             setIsListening(true);
             isRestartingRef.current = false;
-            console.log('[VoiceMode] ✅ Recognition restarted successfully after response');
+            console.log('[VoiceMode] ✅ Recognition and MediaRecorder restarted successfully after response');
           } catch (err: any) {
             console.error('[VoiceMode] ❌ Error restarting recognition:', err);
             isRestartingRef.current = false;
