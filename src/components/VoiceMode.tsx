@@ -268,10 +268,13 @@ export function VoiceMode({
 
                 console.log('[VoiceMode] FormData created, file size:', audioBlob.size);
 
-                const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+                const response = await fetch(`${supabaseUrl}/functions/v1/speech-to-text`, {
                   method: 'POST',
                   headers: {
-                    'Authorization': `Bearer ${import.meta.env.VITE_GROQ_API_KEY}`
+                    'Authorization': `Bearer ${supabaseAnonKey}`,
                   },
                   body: formData
                 });
