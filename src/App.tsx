@@ -766,7 +766,7 @@ function App() {
 
             return new Promise<void>((resolve) => {
               let hasStarted = false;
-              const bufferTimeout = isMobile ? 600 : 400;
+              const bufferTimeout = isMobile ? 1500 : 1000;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
                   console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');

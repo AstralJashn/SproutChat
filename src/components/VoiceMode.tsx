@@ -475,7 +475,7 @@ export function VoiceMode({
         const updateAudioLevel = () => {
           if (!analyserRef.current || !audioContextRef.current) return;
 
-          if (isProcessing || isSpeaking) {
+          if (isMobile && (isProcessing || isSpeaking)) {
             return;
           }
 
