@@ -342,14 +342,16 @@ export function VoiceMode({
             lastSoundTime = Date.now();
             if (speechStartTime === 0) {
               speechStartTime = Date.now();
+              console.log('[VoiceMode] 🎙️ Speech started');
             }
           }
 
           const silenceDuration = Date.now() - lastSoundTime;
           const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
 
-          if (speechDuration > 1000 && silenceDuration > 1500 && mediaRecorderRef.current?.state === 'recording' && !lastTranscriptRef.current.trim()) {
-            console.log('[VoiceMode] 🔇 Silence detected after speech, triggering Whisper fallback');
+          if (speechDuration > 1000 && silenceDuration > 1500 && mediaRecorderRef.current?.state === 'recording') {
+            console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
+            console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
             speechStartTime = 0;
             if (mediaRecorderRef.current.state === 'recording') {
               mediaRecorderRef.current.stop();
