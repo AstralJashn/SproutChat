@@ -237,18 +237,22 @@ export function VoiceMode({
       lastTranscriptRef.current = '';
 
       setTimeout(() => {
-        if (recognitionRef.current) {
+        if (recognitionRef.current && !isListening) {
           try {
+            console.log('[VoiceMode] Attempting to restart recognition...');
             recognitionRef.current.start();
             setIsListening(true);
-            console.log('[VoiceMode] Recognition restarted');
-          } catch (err) {
+            console.log('[VoiceMode] ✅ Recognition restarted successfully');
+          } catch (err: any) {
             console.error('[VoiceMode] Error restarting recognition:', err);
+            if (err.message && !err.message.includes('already started')) {
+              setIsListening(false);
+            }
           }
         }
-      }, 100);
+      }, 500);
     }
-  }, [isSpeaking, isProcessing]);
+  }, [isSpeaking, isProcessing, isListening]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
