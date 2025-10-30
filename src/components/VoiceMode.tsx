@@ -47,36 +47,36 @@ export function VoiceMode({
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const backgroundSparks = useMemo(() => {
-    const count = isMobile ? 2 : 6;
+    const count = isMobile ? 1 : 4;
     return [...Array(count)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
-      duration: 4 + Math.random() * 4,
-      delay: Math.random() * 3,
-      sparkX: `${(Math.random() - 0.5) * 200}px`,
-      sparkY: `${(Math.random() - 0.5) * 200}px`,
+      duration: 5 + Math.random() * 3,
+      delay: Math.random() * 2,
+      sparkX: `${(Math.random() - 0.5) * 150}px`,
+      sparkY: `${(Math.random() - 0.5) * 150}px`,
     }));
   }, [isMobile]);
 
   const backgroundEmbers = useMemo(() => {
-    const count = isMobile ? 0 : 3;
+    const count = isMobile ? 0 : 2;
     return [...Array(count)].map((_, i) => ({
       key: `ember-${i}`,
-      left: `${15 + Math.random() * 70}%`,
-      duration: 6 + Math.random() * 4,
-      delay: Math.random() * 5,
-      driftX: `${(Math.random() - 0.5) * 100}px`,
+      left: `${20 + Math.random() * 60}%`,
+      duration: 7 + Math.random() * 3,
+      delay: Math.random() * 4,
+      driftX: `${(Math.random() - 0.5) * 80}px`,
     }));
   }, [isMobile]);
 
   const backgroundHeartbeats = useMemo(() => {
-    const count = isMobile ? 0 : 2;
+    const count = isMobile ? 0 : 1;
     return [...Array(count)].map((_, i) => ({
       key: `heartbeat-${i}`,
-      left: `${25 + i * 50}%`,
-      top: `${40 + (i % 2) * 20}%`,
-      delay: `${i * 2}s`,
+      left: `${40 + i * 20}%`,
+      top: `${45 + (i % 2) * 10}%`,
+      delay: `${i * 3}s`,
     }));
   }, [isMobile]);
 
@@ -729,9 +729,9 @@ export function VoiceMode({
     let lastRippleTime = 0;
     let lastFrameTime = 0;
     const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
-    const targetFPS = isMobile ? 15 : 30;
+    const targetFPS = isMobile ? 20 : 30;
     const frameInterval = 1000 / targetFPS;
-    const maxRipples = isMobile ? 1 : 4;
+    const maxRipples = isMobile ? 1 : 3;
 
     const animate = (timestamp: number) => {
       if (isMobile && isSpeaking) {
@@ -749,7 +749,7 @@ export function VoiceMode({
       ctx.clearRect(0, 0, width, height);
 
       const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevel / 100) : isListening && micAudioLevel > 20 ? Math.min(1, micAudioLevel / 100) : 0.3;
-      const rippleInterval = isSpeaking ? 800 : isListening && micAudioLevel > 25 ? Math.max(600, 1000 - (micAudioLevel * 2)) : 2000;
+      const rippleInterval = isSpeaking ? 1000 : isListening && micAudioLevel > 25 ? Math.max(800, 1200 - (micAudioLevel * 2)) : 2500;
 
       if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
         if (ripples.length < maxRipples) {
@@ -765,8 +765,8 @@ export function VoiceMode({
       for (let i = ripples.length - 1; i >= 0; i--) {
         const ripple = ripples[i];
 
-        ripple.radius += isMobile ? 4 : 2 * audioIntensity;
-        ripple.opacity -= isMobile ? 0.015 : 0.006;
+        ripple.radius += isMobile ? 5 : 2.5 * audioIntensity;
+        ripple.opacity -= isMobile ? 0.02 : 0.008;
 
         if (ripple.opacity <= 0 || ripple.radius > ripple.maxRadius) {
           ripples.splice(i, 1);
@@ -945,8 +945,8 @@ export function VoiceMode({
         <div className="relative mb-6 sm:mb-8">
           <canvas
             ref={canvasRef}
-            width={700}
-            height={700}
+            width={isMobile ? 400 : 600}
+            height={isMobile ? 400 : 600}
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-75 sm:scale-90 md:scale-100"
             style={{ transform: 'translate(-50%, -50%) translateZ(0)', willChange: 'contents' }}
           />
@@ -977,7 +977,7 @@ export function VoiceMode({
                   <stop offset="100%" stopColor="#059669" stopOpacity="0" />
                 </radialGradient>
                 <filter id="voiceHeartFilter">
-                  <feGaussianBlur stdDeviation={isMobile ? "2" : "4"} result="coloredBlur"/>
+                  <feGaussianBlur stdDeviation={isMobile ? "1" : "3"} result="coloredBlur"/>
                   <feMerge>
                     <feMergeNode in="coloredBlur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -985,7 +985,7 @@ export function VoiceMode({
                 </filter>
               </defs>
 
-              {isSpeaking && !isMobile && (
+              {false && isSpeaking && !isMobile && (
                 <>
                   <path
                     d="M100,170

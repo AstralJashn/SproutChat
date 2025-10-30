@@ -143,36 +143,36 @@ function App() {
   }, []);
 
   const backgroundSparks = useMemo(() => {
-    const count = isMobile ? 6 : 12;
+    const count = isMobile ? 3 : 6;
     return [...Array(count)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
-      duration: 4 + Math.random() * 4,
-      delay: Math.random() * 3,
-      sparkX: `${(Math.random() - 0.5) * 200}px`,
-      sparkY: `${(Math.random() - 0.5) * 200}px`,
+      duration: 5 + Math.random() * 3,
+      delay: Math.random() * 2,
+      sparkX: `${(Math.random() - 0.5) * 150}px`,
+      sparkY: `${(Math.random() - 0.5) * 150}px`,
     }));
   }, [isMobile]);
 
   const backgroundEmbers = useMemo(() => {
-    const count = isMobile ? 4 : 8;
+    const count = isMobile ? 2 : 4;
     return [...Array(count)].map((_, i) => ({
       key: `ember-${i}`,
-      left: `${15 + Math.random() * 70}%`,
-      duration: 6 + Math.random() * 4,
-      delay: Math.random() * 5,
-      driftX: `${(Math.random() - 0.5) * 100}px`,
+      left: `${20 + Math.random() * 60}%`,
+      duration: 7 + Math.random() * 3,
+      delay: Math.random() * 4,
+      driftX: `${(Math.random() - 0.5) * 80}px`,
     }));
   }, [isMobile]);
 
   const backgroundHeartbeats = useMemo(() => {
-    const count = isMobile ? 2 : 3;
+    const count = isMobile ? 1 : 2;
     return [...Array(count)].map((_, i) => ({
       key: `heartbeat-${i}`,
-      left: `${20 + i * 30}%`,
-      top: `${30 + (i % 2) * 40}%`,
-      delay: `${i * 2}s`,
+      left: `${30 + i * 40}%`,
+      top: `${35 + (i % 2) * 30}%`,
+      delay: `${i * 3}s`,
     }));
   }, [isMobile]);
 
