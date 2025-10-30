@@ -92,7 +92,7 @@ export function VoiceMode({
       return;
     }
     recognitionRef.current = recognition;
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
@@ -163,6 +163,10 @@ export function VoiceMode({
     };
 
     recognition.onerror = (event: any) => {
+      console.log('[VoiceMode] ❌ Recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        console.log('[VoiceMode] No speech detected - will restart');
+      }
       if (event.error !== 'no-speech' && event.error !== 'aborted') {
         setIsListening(false);
       }
@@ -491,6 +495,27 @@ export function VoiceMode({
       >
         <X className="w-6 h-6" />
       </button>
+
+      {isListening && transcript && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('[VoiceMode] Manual submit button clicked');
+            if (transcript.trim()) {
+              isProcessingTranscriptRef.current = true;
+              hasSubmittedTranscriptRef.current = true;
+              if (recognitionRef.current) {
+                recognitionRef.current.stop();
+              }
+              onTranscript(transcript);
+              setTranscript('');
+            }
+          }}
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white z-50 pointer-events-auto bg-emerald-600 hover:bg-emerald-500 rounded-full px-6 py-3 font-medium transition-colors shadow-lg"
+        >
+          Submit
+        </button>
+      )}
 
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
         <img
