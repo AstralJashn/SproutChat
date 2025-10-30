@@ -230,29 +230,47 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
+    console.log('[VoiceMode] Restart effect triggered', {
+      isSpeaking,
+      isProcessing,
+      hasSubmittedTranscript: hasSubmittedTranscriptRef.current,
+      hasRecognition: !!recognitionRef.current,
+      isListening
+    });
+
     if (!isSpeaking && !isProcessing && hasSubmittedTranscriptRef.current && recognitionRef.current) {
-      console.log('[VoiceMode] Restarting recognition after TTS complete');
+      console.log('[VoiceMode] ✅ Conditions met - Restarting recognition after TTS complete');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
 
       setTimeout(() => {
-        if (recognitionRef.current && !isListening) {
+        console.log('[VoiceMode] Timeout fired - checking recognition state', {
+          hasRecognition: !!recognitionRef.current,
+          isListening
+        });
+
+        if (recognitionRef.current) {
           try {
             console.log('[VoiceMode] Attempting to restart recognition...');
             recognitionRef.current.start();
             setIsListening(true);
             console.log('[VoiceMode] ✅ Recognition restarted successfully');
           } catch (err: any) {
-            console.error('[VoiceMode] Error restarting recognition:', err);
-            if (err.message && !err.message.includes('already started')) {
+            console.error('[VoiceMode] ❌ Error restarting recognition:', err);
+            if (err.message && err.message.includes('already started')) {
+              console.log('[VoiceMode] Recognition already started, setting isListening=true');
+              setIsListening(true);
+            } else {
               setIsListening(false);
             }
           }
+        } else {
+          console.error('[VoiceMode] ❌ recognitionRef is null, cannot restart');
         }
       }, 500);
     }
-  }, [isSpeaking, isProcessing, isListening]);
+  }, [isSpeaking, isProcessing]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
