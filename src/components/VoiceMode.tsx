@@ -224,7 +224,7 @@ export function VoiceMode({
       lastTranscriptRef.current = '';
 
       setTimeout(() => {
-        if (recognitionRef.current && !isListening) {
+        if (recognitionRef.current) {
           try {
             recognitionRef.current.start();
             setIsListening(true);
