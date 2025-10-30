@@ -130,6 +130,10 @@ function App() {
   const [isPackingListOpen, setIsPackingListOpen] = useState(false);
   const [isSituationalGuideOpen, setIsSituationalGuideOpen] = useState(false);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isMobile = useMemo(() => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -139,7 +143,8 @@ function App() {
   }, []);
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(12)].map((_, i) => ({
+    const count = isMobile ? 6 : 12;
+    return [...Array(count)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
@@ -148,26 +153,28 @@ function App() {
       sparkX: `${(Math.random() - 0.5) * 200}px`,
       sparkY: `${(Math.random() - 0.5) * 200}px`,
     }));
-  }, []);
+  }, [isMobile]);
 
   const backgroundEmbers = useMemo(() => {
-    return [...Array(8)].map((_, i) => ({
+    const count = isMobile ? 4 : 8;
+    return [...Array(count)].map((_, i) => ({
       key: `ember-${i}`,
       left: `${15 + Math.random() * 70}%`,
       duration: 6 + Math.random() * 4,
       delay: Math.random() * 5,
       driftX: `${(Math.random() - 0.5) * 100}px`,
     }));
-  }, []);
+  }, [isMobile]);
 
   const backgroundHeartbeats = useMemo(() => {
-    return [...Array(3)].map((_, i) => ({
+    const count = isMobile ? 2 : 3;
+    return [...Array(count)].map((_, i) => ({
       key: `heartbeat-${i}`,
       left: `${20 + i * 30}%`,
       top: `${30 + (i % 2) * 40}%`,
       delay: `${i * 2}s`,
     }));
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
@@ -717,10 +724,14 @@ function App() {
           if (jsonData.success && jsonData.audioUrl) {
             console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
             const audio = new Audio();
-            audio.preload = 'auto';
+            audio.preload = isMobile ? 'metadata' : 'auto';
             audio.crossOrigin = 'anonymous';
             audio.volume = 1.0;
             audio.playbackRate = 1.0;
+            if (isMobile) {
+              audio.setAttribute('playsinline', 'true');
+              audio.setAttribute('webkit-playsinline', 'true');
+            }
             currentAudioRef.current = audio;
 
             audio.onended = () => {
@@ -757,6 +768,7 @@ function App() {
 
             return new Promise<void>((resolve) => {
               let hasStarted = false;
+              const bufferTimeout = isMobile ? 2500 : 1500;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
                   console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
@@ -770,7 +782,7 @@ function App() {
                     resolve();
                   });
                 }
-              }, 1500);
+              }, bufferTimeout);
 
               audio.oncanplay = async () => {
                 if (!hasStarted) {
@@ -779,6 +791,9 @@ function App() {
                   console.log('[TTS] ✅ Audio ready to play (fast path)');
                   try {
                     isSpeakingRef.current = true;
+                    if (isMobile) {
+                      await new Promise(r => setTimeout(r, 100));
+                    }
                     await audio.play();
                     startSpeechVisualization();
                     resolve();

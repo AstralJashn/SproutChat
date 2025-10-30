@@ -24,6 +24,10 @@ export function VoiceMode({
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [micAudioLevel, setMicAudioLevel] = useState(0);
+  const isMobile = useMemo(() => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768);
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heartRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -39,7 +43,8 @@ export function VoiceMode({
   const audioChunksRef = useRef<Blob[]>([]);
 
   const backgroundSparks = useMemo(() => {
-    return [...Array(6)].map((_, i) => ({
+    const count = isMobile ? 3 : 6;
+    return [...Array(count)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
       top: `${Math.random() * 100}%`,
@@ -48,26 +53,28 @@ export function VoiceMode({
       sparkX: `${(Math.random() - 0.5) * 200}px`,
       sparkY: `${(Math.random() - 0.5) * 200}px`,
     }));
-  }, []);
+  }, [isMobile]);
 
   const backgroundEmbers = useMemo(() => {
-    return [...Array(3)].map((_, i) => ({
+    const count = isMobile ? 1 : 3;
+    return [...Array(count)].map((_, i) => ({
       key: `ember-${i}`,
       left: `${15 + Math.random() * 70}%`,
       duration: 6 + Math.random() * 4,
       delay: Math.random() * 5,
       driftX: `${(Math.random() - 0.5) * 100}px`,
     }));
-  }, []);
+  }, [isMobile]);
 
   const backgroundHeartbeats = useMemo(() => {
-    return [...Array(2)].map((_, i) => ({
+    const count = isMobile ? 1 : 2;
+    return [...Array(count)].map((_, i) => ({
       key: `heartbeat-${i}`,
       left: `${25 + i * 50}%`,
       top: `${40 + (i % 2) * 20}%`,
       delay: `${i * 2}s`,
     }));
-  }, []);
+  }, [isMobile]);
 
   useEffect(() => {
     console.log('[VoiceMode] ==== INITIALIZING VOICE MODE ====');
@@ -114,8 +121,9 @@ export function VoiceMode({
         if (mediaRecorderRef.current.state === 'inactive') {
           audioChunksRef.current = [];
           try {
-            mediaRecorderRef.current.start(100);
-            console.log('[VoiceMode] ✅ MediaRecorder started');
+            const chunkSize = isMobile ? 200 : 100;
+            mediaRecorderRef.current.start(chunkSize);
+            console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
           } catch (e) {
             console.error('[VoiceMode] ❌ Failed to start MediaRecorder:', e);
           }
@@ -233,7 +241,26 @@ export function VoiceMode({
       }
     };
 
-    navigator.mediaDevices.getUserMedia({ audio: true })
+    const audioConstraints = isMobile
+      ? {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100,
+            channelCount: 1
+          }
+        }
+      : {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 48000
+          }
+        };
+
+    navigator.mediaDevices.getUserMedia(audioConstraints)
       .then((stream) => {
         console.log('[VoiceMode] ✓ Microphone permission granted');
 
@@ -243,10 +270,13 @@ export function VoiceMode({
             : MediaRecorder.isTypeSupported('audio/mp4')
             ? 'audio/mp4'
             : 'audio/webm';
+
+          const bitrate = isMobile ? 128000 : 256000;
+
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
-            audioBitsPerSecond: 256000,
-            bitsPerSecond: 256000
+            audioBitsPerSecond: bitrate,
+            bitsPerSecond: bitrate
           });
 
           mediaRecorderRef.current.ondataavailable = (event) => {
@@ -363,15 +393,17 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
+        const sampleRate = isMobile ? 44100 : 48000;
         audioContextRef.current = new AudioContext({
           latencyHint: 'interactive',
-          sampleRate: 48000
+          sampleRate
         });
         analyserRef.current = audioContextRef.current.createAnalyser();
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
-        analyserRef.current.fftSize = 512;
-        analyserRef.current.smoothingTimeConstant = 0.85;
+
+        analyserRef.current.fftSize = isMobile ? 256 : 512;
+        analyserRef.current.smoothingTimeConstant = isMobile ? 0.8 : 0.85;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
 
@@ -380,20 +412,23 @@ export function VoiceMode({
         let lastSoundTime = Date.now();
         let speechStartTime = 0;
         let frameCount = 0;
+        const frameSkip = isMobile ? 3 : 2;
+
         const updateAudioLevel = () => {
           if (!analyserRef.current) return;
 
           frameCount++;
-          if (frameCount % 2 !== 0) {
+          if (frameCount % frameSkip !== 0) {
             requestAnimationFrame(updateAudioLevel);
             return;
           }
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          const lowFreqData = dataArray.slice(3, 12);
-          const midFreqData = dataArray.slice(12, 32);
-          const highFreqData = dataArray.slice(32, 48);
+          const sliceSize = isMobile ? 6 : 9;
+          const lowFreqData = dataArray.slice(3, 3 + sliceSize);
+          const midFreqData = dataArray.slice(3 + sliceSize, 3 + sliceSize * 2);
+          const highFreqData = dataArray.slice(3 + sliceSize * 2, 3 + sliceSize * 3);
 
           const lowAvg = lowFreqData.reduce((a, b) => a + b, 0) / lowFreqData.length;
           const midAvg = midFreqData.reduce((a, b) => a + b, 0) / midFreqData.length;
@@ -530,7 +565,11 @@ export function VoiceMode({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', {
+      alpha: true,
+      desynchronized: true,
+      willReadFrequently: false
+    });
     if (!ctx) return;
 
     const width = canvas.width;
@@ -542,8 +581,9 @@ export function VoiceMode({
     let lastRippleTime = 0;
     let lastFrameTime = 0;
     const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
-    const targetFPS = 30;
+    const targetFPS = isMobile ? 20 : 30;
     const frameInterval = 1000 / targetFPS;
+    const maxRipples = isMobile ? 3 : 6;
 
     const animate = (timestamp: number) => {
       if (timestamp - lastFrameTime < frameInterval) {
@@ -558,11 +598,11 @@ export function VoiceMode({
       const rippleInterval = isSpeaking ? 600 : isListening && micAudioLevel > 25 ? Math.max(400, 800 - (micAudioLevel * 2)) : 2000;
 
       if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
-        if (ripples.length < 6) {
+        if (ripples.length < maxRipples) {
           ripples.push({
             radius: 0,
-            opacity: 0.5,
-            maxRadius: 250
+            opacity: isMobile ? 0.4 : 0.5,
+            maxRadius: isMobile ? 180 : 250
           });
         }
         lastRippleTime = timestamp;
@@ -579,22 +619,29 @@ export function VoiceMode({
           continue;
         }
 
-        const gradient = ctx.createRadialGradient(
-          centerX, centerY, Math.max(0, ripple.radius - 1),
-          centerX, centerY, Math.max(1, ripple.radius + 1)
-        );
-
-        if (isSpeaking || isListening) {
-          gradient.addColorStop(0, `rgba(16, 185, 129, ${ripple.opacity * 0.5})`);
-          gradient.addColorStop(0.5, `rgba(6, 182, 212, ${ripple.opacity * 0.6})`);
-          gradient.addColorStop(1, `rgba(16, 185, 129, ${ripple.opacity * 0.3})`);
+        if (isMobile) {
+          ctx.strokeStyle = (isSpeaking || isListening)
+            ? `rgba(16, 185, 129, ${ripple.opacity * 0.4})`
+            : `rgba(156, 163, 175, ${ripple.opacity * 0.25})`;
+          ctx.lineWidth = 1.5;
         } else {
-          gradient.addColorStop(0, `rgba(156, 163, 175, ${ripple.opacity * 0.3})`);
-          gradient.addColorStop(1, `rgba(107, 114, 128, ${ripple.opacity * 0.15})`);
-        }
+          const gradient = ctx.createRadialGradient(
+            centerX, centerY, Math.max(0, ripple.radius - 1),
+            centerX, centerY, Math.max(1, ripple.radius + 1)
+          );
 
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 2;
+          if (isSpeaking || isListening) {
+            gradient.addColorStop(0, `rgba(16, 185, 129, ${ripple.opacity * 0.5})`);
+            gradient.addColorStop(0.5, `rgba(6, 182, 212, ${ripple.opacity * 0.6})`);
+            gradient.addColorStop(1, `rgba(16, 185, 129, ${ripple.opacity * 0.3})`);
+          } else {
+            gradient.addColorStop(0, `rgba(156, 163, 175, ${ripple.opacity * 0.3})`);
+            gradient.addColorStop(1, `rgba(107, 114, 128, ${ripple.opacity * 0.15})`);
+          }
+
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 2;
+        }
         ctx.beginPath();
         ctx.arc(centerX, centerY, ripple.radius, 0, Math.PI * 2);
         ctx.stroke();
@@ -608,7 +655,7 @@ export function VoiceMode({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel]);
+  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel, isMobile]);
 
   useEffect(() => {
     if (!heartRef.current) return;
@@ -617,9 +664,17 @@ export function VoiceMode({
     let lastBeatTime = 0;
     let currentScale = 1;
     let targetScale = 1;
+    let frameCount = 0;
+    const frameSkip = isMobile ? 2 : 1;
 
     const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
+
+      frameCount++;
+      if (isMobile && frameCount % frameSkip !== 0) {
+        animationFrame = requestAnimationFrame(animateBeat);
+        return;
+      }
 
       if (isSpeaking) {
         const intensity = Math.max(0.3, responseAudioLevel / 100);
@@ -653,7 +708,7 @@ export function VoiceMode({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel]);
+  }, [isSpeaking, isListening, responseAudioLevel, micAudioLevel, isMobile]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -666,8 +721,8 @@ export function VoiceMode({
       </div>
 
       <div className="absolute inset-0 sm:hidden">
-        <div className="absolute top-20 left-5 w-[300px] h-[300px] bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 rounded-full filter blur-[60px]" style={{ animationDelay: '0s', transform: 'translateZ(0)' }}></div>
-        <div className="absolute top-40 right-5 w-[300px] h-[300px] bg-gradient-to-br from-cyan-500/15 to-cyan-600/5 rounded-full filter blur-[60px]" style={{ animationDelay: '1s', transform: 'translateZ(0)' }}></div>
+        <div className="absolute top-20 left-5 w-[250px] h-[250px] bg-gradient-to-br from-emerald-500/12 to-emerald-600/4 rounded-full filter blur-[40px]" style={{ animationDelay: '0s', transform: 'translateZ(0)', willChange: 'transform' }}></div>
+        <div className="absolute top-40 right-5 w-[250px] h-[250px] bg-gradient-to-br from-cyan-500/12 to-cyan-600/4 rounded-full filter blur-[40px]" style={{ animationDelay: '1s', transform: 'translateZ(0)', willChange: 'transform' }}></div>
       </div>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -778,7 +833,7 @@ export function VoiceMode({
                   <stop offset="100%" stopColor="#059669" stopOpacity="0" />
                 </radialGradient>
                 <filter id="voiceHeartFilter">
-                  <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                  <feGaussianBlur stdDeviation={isMobile ? "2" : "4"} result="coloredBlur"/>
                   <feMerge>
                     <feMergeNode in="coloredBlur"/>
                     <feMergeNode in="SourceGraphic"/>
@@ -786,7 +841,7 @@ export function VoiceMode({
                 </filter>
               </defs>
 
-              {isSpeaking && (
+              {isSpeaking && !isMobile && (
                 <>
                   <path
                     d="M100,170
