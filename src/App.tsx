@@ -716,7 +716,9 @@ function App() {
 
           if (jsonData.success && jsonData.audioUrl) {
             console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
-            const audio = new Audio(jsonData.audioUrl);
+            const audio = new Audio();
+            audio.preload = 'auto';
+            audio.crossOrigin = 'anonymous';
             currentAudioRef.current = audio;
 
             audio.onended = () => {
@@ -751,10 +753,23 @@ function App() {
               stopSpeechVisualization();
             };
 
-            isSpeakingRef.current = true;
-            await audio.play();
-            startSpeechVisualization();
-            return;
+            return new Promise<void>((resolve) => {
+              audio.oncanplaythrough = async () => {
+                console.log('[TTS] ✅ Audio buffered and ready to play');
+                try {
+                  isSpeakingRef.current = true;
+                  await audio.play();
+                  startSpeechVisualization();
+                  resolve();
+                } catch (playError) {
+                  console.error('[TTS] Play error:', playError);
+                  resolve();
+                }
+              };
+
+              audio.src = jsonData.audioUrl;
+              audio.load();
+            });
           }
 
           console.log('[TTS] JSON response (unexpected format):', jsonData);
