@@ -222,7 +222,7 @@ export function VoiceMode({
       isListening
     });
 
-    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening) {
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && hasSubmittedTranscriptRef.current) {
       console.log('[VoiceMode] ✅ TTS/Processing complete and not listening - restarting recognition');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
