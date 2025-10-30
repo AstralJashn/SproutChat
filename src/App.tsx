@@ -697,7 +697,7 @@ function App() {
       console.log('[TTS] Calling Murf TTS API with timeout...');
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
 
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/text-to-speech`,

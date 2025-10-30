@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
     });
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 40000);
 
     try {
       const murfResponse = await fetch(
@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        console.error('[TTS] Request timeout after 20s');
+        console.error('[TTS] Request timeout after 40s');
         return new Response(
           JSON.stringify({
             error: "use_browser_tts",
