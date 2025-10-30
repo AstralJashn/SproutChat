@@ -43,6 +43,7 @@ export function VoiceMode({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const backgroundSparks = useMemo(() => {
     const count = isMobile ? 3 : 6;
@@ -431,96 +432,74 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
-        const sampleRate = isMobile ? 44100 : 48000;
-        audioContextRef.current = new AudioContext({
-          latencyHint: 'interactive',
-          sampleRate
-        });
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        source.connect(analyserRef.current);
+        if (!isMobile) {
+          audioContextRef.current = new AudioContext({
+            latencyHint: 'interactive',
+            sampleRate: 48000
+          });
+          analyserRef.current = audioContextRef.current.createAnalyser();
+          const source = audioContextRef.current.createMediaStreamSource(stream);
+          source.connect(analyserRef.current);
 
-        analyserRef.current.fftSize = isMobile ? 128 : 512;
-        analyserRef.current.smoothingTimeConstant = isMobile ? 0.75 : 0.85;
-        analyserRef.current.minDecibels = -90;
-        analyserRef.current.maxDecibels = -10;
-
-        if (isMobile && audioContextRef.current.state === 'running') {
-          console.log('[VoiceMode] Mobile: Suspending AudioContext initially');
-          audioContextRef.current.suspend();
+          analyserRef.current.fftSize = 512;
+          analyserRef.current.smoothingTimeConstant = 0.85;
+          analyserRef.current.minDecibels = -90;
+          analyserRef.current.maxDecibels = -10;
         }
 
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        const dataArray = !isMobile && analyserRef.current ? new Uint8Array(analyserRef.current.frequencyBinCount) : new Uint8Array(0);
         let soundDetected = false;
         let lastSoundTime = Date.now();
         let speechStartTime = 0;
-        let frameCount = 0;
-        const frameSkip = isMobile ? 4 : 2;
-        let lastUpdateTime = 0;
-        const updateInterval = isMobile ? 150 : 50;
 
-        const updateAudioLevel = (timestamp: number) => {
-          if (!analyserRef.current) return;
+        const updateAudioLevel = () => {
+          if (!analyserRef.current || !audioContextRef.current) return;
 
-          frameCount++;
-          if (frameCount % frameSkip !== 0) {
-            requestAnimationFrame(updateAudioLevel);
-            return;
-          }
-
-          if (isMobile && timestamp - lastUpdateTime < updateInterval) {
-            requestAnimationFrame(updateAudioLevel);
-            return;
-          }
-          lastUpdateTime = timestamp;
-
-          if (audioContextRef.current?.state === 'suspended' && isMobile) {
+          if (audioContextRef.current.state === 'suspended' && isMobile) {
             audioContextRef.current.resume();
           }
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
           const sliceSize = isMobile ? 4 : 9;
-          const lowFreqData = dataArray.slice(2, 2 + sliceSize);
-          const midFreqData = dataArray.slice(2 + sliceSize, 2 + sliceSize * 2);
-
           let lowSum = 0;
           let midSum = 0;
-          for (let i = 0; i < lowFreqData.length; i++) {
-            lowSum += lowFreqData[i];
+
+          for (let i = 2; i < 2 + sliceSize; i++) {
+            lowSum += dataArray[i];
           }
-          for (let i = 0; i < midFreqData.length; i++) {
-            midSum += midFreqData[i];
+          for (let i = 2 + sliceSize; i < 2 + sliceSize * 2; i++) {
+            midSum += dataArray[i];
           }
 
-          const lowAvg = lowSum / lowFreqData.length;
-          const midAvg = midSum / midFreqData.length;
+          const lowAvg = lowSum / sliceSize;
+          const midAvg = midSum / sliceSize;
 
           const weightedLevel = (lowAvg * 0.6 + midAvg * 0.4) * 1.5;
           const clampedLevel = Math.min(100, weightedLevel);
 
-          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 5 : 2)) {
+          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 8 : 2)) {
             micAudioLevelRef.current = clampedLevel;
             setMicAudioLevel(clampedLevel);
           }
 
           if (!soundDetected && weightedLevel > 5) {
             soundDetected = true;
-            console.log('[VoiceMode] 🎤 Sound detected! Mic is working. Level:', weightedLevel);
+            if (!isMobile) console.log('[VoiceMode] �� Sound detected! Mic is working. Level:', weightedLevel);
           }
 
           if (weightedLevel > 8) {
             lastSoundTime = Date.now();
             if (speechStartTime === 0) {
               speechStartTime = Date.now();
-              console.log('[VoiceMode] 🎙️ Speech started');
+              if (!isMobile) console.log('[VoiceMode] 🎙️ Speech started');
             }
           }
 
           const silenceDuration = Date.now() - lastSoundTime;
           const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
 
-          if (isMobile && audioContextRef.current && silenceDuration > 3000 && speechDuration === 0) {
+          if (isMobile && audioContextRef.current && silenceDuration > 5000 && speechDuration === 0) {
             if (audioContextRef.current.state === 'running') {
               audioContextRef.current.suspend();
             }
@@ -528,13 +507,17 @@ export function VoiceMode({
 
           if (speechDuration > 600 && silenceDuration > 1000) {
             if (mediaRecorderRef.current?.state === 'recording') {
-              console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
-              console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
+              if (!isMobile) {
+                console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
+                console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
+              }
               speechStartTime = 0;
               mediaRecorderRef.current.stop();
             } else if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-              console.log('[VoiceMode] 🔇 Silence detected but MediaRecorder not recording');
-              console.log('[VoiceMode] Stopping recognition to trigger processing');
+              if (!isMobile) {
+                console.log('[VoiceMode] 🔇 Silence detected but MediaRecorder not recording');
+                console.log('[VoiceMode] Stopping recognition to trigger processing');
+              }
               speechStartTime = 0;
               try {
                 recognitionRef.current.stop();
@@ -543,10 +526,28 @@ export function VoiceMode({
               }
             }
           }
-
-          requestAnimationFrame(updateAudioLevel);
         };
-        updateAudioLevel();
+
+        if (isMobile) {
+          let animLevel = 50;
+          audioIntervalRef.current = setInterval(() => {
+            animLevel = 40 + Math.random() * 35;
+            if (Math.abs(micAudioLevelRef.current - animLevel) > 10) {
+              micAudioLevelRef.current = animLevel;
+              setMicAudioLevel(animLevel);
+            }
+          }, 700);
+        } else {
+          let frameCount = 0;
+          const rafUpdate = () => {
+            frameCount++;
+            if (frameCount % 2 === 0) {
+              updateAudioLevel();
+            }
+            requestAnimationFrame(rafUpdate);
+          };
+          rafUpdate();
+        }
 
         console.log('[VoiceMode] Attempting to start recognition...');
         try {
@@ -592,6 +593,11 @@ export function VoiceMode({
 
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
+      }
+
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
       }
 
       audioChunksRef.current = [];
