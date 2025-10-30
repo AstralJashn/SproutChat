@@ -153,6 +153,21 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
+      console.log('[VoiceMode] Recognition ended, checking for pending transcript...');
+
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+
+      if (lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+        console.log('[VoiceMode] Submitting transcript from onend:', lastTranscriptRef.current);
+        isProcessingTranscriptRef.current = true;
+        hasSubmittedTranscriptRef.current = true;
+        onTranscript(lastTranscriptRef.current);
+        setTranscript('');
+      }
+
       setIsListening(false);
     };
 
