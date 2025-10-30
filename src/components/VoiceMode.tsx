@@ -109,10 +109,21 @@ export function VoiceMode({
       console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
 
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
-        audioChunksRef.current = [];
-        mediaRecorderRef.current.start(100);
-        console.log('[VoiceMode] MediaRecorder started');
+      if (mediaRecorderRef.current) {
+        console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
+        if (mediaRecorderRef.current.state === 'inactive') {
+          audioChunksRef.current = [];
+          try {
+            mediaRecorderRef.current.start(100);
+            console.log('[VoiceMode] ✅ MediaRecorder started');
+          } catch (e) {
+            console.error('[VoiceMode] ❌ Failed to start MediaRecorder:', e);
+          }
+        } else {
+          console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
+        }
+      } else {
+        console.error('[VoiceMode] ❌ MediaRecorder ref is null!');
       }
     };
 
@@ -232,7 +243,7 @@ export function VoiceMode({
             : 'audio/webm';
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
-            audioBitsPerSecond: 64000
+            audioBitsPerSecond: 128000
           });
 
           mediaRecorderRef.current.ondataavailable = (event) => {
@@ -389,12 +400,21 @@ export function VoiceMode({
           const silenceDuration = Date.now() - lastSoundTime;
           const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
 
-          if (speechDuration > 1000 && silenceDuration > 1500 && mediaRecorderRef.current?.state === 'recording') {
-            console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
-            console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
-            speechStartTime = 0;
-            if (mediaRecorderRef.current.state === 'recording') {
+          if (speechDuration > 800 && silenceDuration > 1200) {
+            if (mediaRecorderRef.current?.state === 'recording') {
+              console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
+              console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
+              speechStartTime = 0;
               mediaRecorderRef.current.stop();
+            } else if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+              console.log('[VoiceMode] 🔇 Silence detected but MediaRecorder not recording');
+              console.log('[VoiceMode] Stopping recognition to trigger processing');
+              speechStartTime = 0;
+              try {
+                recognitionRef.current.stop();
+              } catch (e) {
+                console.error('[VoiceMode] Error stopping recognition:', e);
+              }
             }
           }
 
