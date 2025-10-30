@@ -7,7 +7,7 @@ interface VoiceModeProps {
   onTranscript: (transcript: string) => void;
   isProcessing: boolean;
   isSpeaking: boolean;
-  responseAudioLevel: number;
+  responseAudioLevelRef: React.MutableRefObject<number>;
   onInterrupt: () => void;
   onStopListening: () => void;
 }
@@ -17,7 +17,7 @@ export function VoiceMode({
   onTranscript,
   isProcessing,
   isSpeaking,
-  responseAudioLevel,
+  responseAudioLevelRef,
   onInterrupt,
   onStopListening
 }: VoiceModeProps) {

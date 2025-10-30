@@ -121,7 +121,7 @@ function App() {
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [responseAudioLevel, setResponseAudioLevel] = useState(0);
+  const responseAudioLevelRef = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   const isSpeakingRef = useRef(false);
   const isMountedRef = useRef(true);
@@ -203,7 +203,7 @@ function App() {
       window.speechSynthesis.cancel();
     }
 
-    setResponseAudioLevel(0);
+    responseAudioLevelRef.current = 0;
     setIsVoiceProcessing(false);
     setIsGenerating(false);
     stopSpeechVisualization();
@@ -749,7 +749,7 @@ function App() {
               }
               isSpeakingRef.current = false;
               setIsSpeaking(false);
-              setResponseAudioLevel(0);
+              responseAudioLevelRef.current = 0;
               setIsVoiceProcessing(false);
               setIsGenerating(false);
               stopSpeechVisualization();
@@ -768,7 +768,7 @@ function App() {
               }
               isSpeakingRef.current = false;
               setIsSpeaking(false);
-              setResponseAudioLevel(0);
+              responseAudioLevelRef.current = 0;
               setIsVoiceProcessing(false);
               setIsGenerating(false);
               stopSpeechVisualization();
@@ -836,7 +836,7 @@ function App() {
         console.error('[TTS] ❌ Murf failed, cannot play audio:', apiError);
         isSpeakingRef.current = false;
         setIsSpeaking(false);
-        setResponseAudioLevel(0);
+        responseAudioLevelRef.current = 0;
         setIsVoiceProcessing(false);
         setIsGenerating(false);
         setErrorNotification('Voice unavailable - see text response');
@@ -883,7 +883,7 @@ function App() {
       }
 
       if (frameCount - lastUpdateFrame >= updateInterval) {
-        setResponseAudioLevel(Math.round(currentLevel * 100));
+        responseAudioLevelRef.current = Math.round(currentLevel * 100);
         lastUpdateFrame = frameCount;
       }
 
@@ -1296,7 +1296,7 @@ function App() {
           onTranscript={handleVoiceTranscript}
           isProcessing={isVoiceProcessing}
           isSpeaking={isSpeaking}
-          responseAudioLevel={responseAudioLevel}
+          responseAudioLevelRef={responseAudioLevelRef}
           onInterrupt={stopCurrentAudio}
           onStopListening={() => {
             console.log('[App] Stop listening triggered');
