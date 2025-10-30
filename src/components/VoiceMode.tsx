@@ -45,6 +45,7 @@ export function VoiceMode({
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const actualMimeTypeRef = useRef<string>('audio/webm;codecs=opus');
 
   const backgroundSparks = useMemo(() => {
     const count = isMobile ? 1 : 4;
@@ -270,6 +271,9 @@ export function VoiceMode({
             ? 'audio/mp4'
             : 'audio/webm';
 
+          actualMimeTypeRef.current = mimeType;
+          console.log('[VoiceMode] Using audio format:', mimeType);
+
           const bitrate = isMobile ? 32000 : 64000;
 
           mediaRecorderRef.current = new MediaRecorder(stream, {
@@ -280,9 +284,8 @@ export function VoiceMode({
           mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
-              if (isMobile && audioChunksRef.current.length > 40) {
-                console.log('[VoiceMode] ⚠️ Mobile: Too many chunks, clearing old data');
-                audioChunksRef.current = audioChunksRef.current.slice(-25);
+              if (isMobile && audioChunksRef.current.length > 100) {
+                console.log('[VoiceMode] ⚠️ Mobile: Recording getting very long (>100 chunks)');
               }
             }
           };
@@ -293,8 +296,9 @@ export function VoiceMode({
             if (audioChunksRef.current.length > 0 && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
               console.log('[VoiceMode] 🔄 Sending audio to Whisper API for transcription');
 
-              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-              console.log('[VoiceMode] Audio blob size:', audioBlob.size, 'bytes');
+              const actualMimeType = actualMimeTypeRef.current;
+              const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
+              console.log('[VoiceMode] Audio blob size:', audioBlob.size, 'bytes, format:', actualMimeType);
               audioChunksRef.current = [];
 
               if (audioBlob.size < 100) {
@@ -318,8 +322,11 @@ export function VoiceMode({
                   console.log('[VoiceMode] Mobile: Large audio file, will send as-is but log warning');
                 }
 
+                const fileExtension = actualMimeType.includes('mp4') ? 'audio.mp4' :
+                                     actualMimeType.includes('webm') ? 'audio.webm' : 'audio.wav';
+
                 const formData = new FormData();
-                formData.append('file', finalBlob, 'audio.webm');
+                formData.append('file', finalBlob, fileExtension);
                 formData.append('model', 'whisper-large-v3');
                 formData.append('language', 'en');
 
