@@ -54,83 +54,114 @@ Deno.serve(async (req: Request) => {
 
     const murfApiKey = apiKeyData.api_key;
     const voiceId = "en-AU-kylie";
+    const maxTextLength = 3000;
+
+    const truncatedText = text.length > maxTextLength ? text.substring(0, maxTextLength) + '...' : text;
 
     console.log('[TTS] Calling Murf API', {
-      textLength: text.length,
+      textLength: truncatedText.length,
+      originalLength: text.length,
+      truncated: text.length > maxTextLength,
       voiceId
     });
 
-    const murfResponse = await fetch(
-      "https://api.murf.ai/v1/speech/generate",
-      {
-        method: "POST",
-        headers: {
-          "api-key": murfApiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          text: text,
-          voiceId: voiceId,
-          style: "Conversational",
-          modelVersion: "GEN2",
-          rate: 5,
-          pitch: 0,
-          format: "MP3",
-          sampleRate: 24000,
-          audioBitRate: 64
-        }),
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const murfResponse = await fetch(
+        "https://api.murf.ai/v1/speech/generate",
+        {
+          method: "POST",
+          headers: {
+            "api-key": murfApiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: truncatedText,
+            voiceId: voiceId,
+            style: "Conversational",
+            modelVersion: "GEN2",
+            rate: 5,
+            pitch: 0,
+            format: "MP3",
+            sampleRate: 48000,
+            audioBitRate: 128
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!murfResponse.ok) {
+        const errorText = await murfResponse.text();
+        console.error('[TTS] Murf API error:', murfResponse.status, errorText);
+
+        console.log('[TTS] Falling back to browser TTS');
+        return new Response(
+          JSON.stringify({
+            error: "use_browser_tts",
+            message: "Murf API failed, using browser text-to-speech"
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-    );
 
-    if (!murfResponse.ok) {
-      const errorText = await murfResponse.text();
-      console.error('[TTS] Murf API error:', murfResponse.status, errorText);
+      const responseData = await murfResponse.json();
 
-      console.log('[TTS] Falling back to browser TTS');
+      if (!responseData.audioFile) {
+        console.error('[TTS] No audioFile in response:', responseData);
+        return new Response(
+          JSON.stringify({
+            error: "use_browser_tts",
+            message: "No audio file in Murf response"
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const audioUrl = responseData.audioFile;
+      console.log('[TTS] Murf audio URL received, returning URL to client for direct streaming');
+
       return new Response(
         JSON.stringify({
-          error: "use_browser_tts",
-          message: "Murf API failed, using browser text-to-speech"
+          audioUrl: audioUrl,
+          success: true,
+          duration: responseData.duration || null
         }),
         {
           status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=3600",
+          },
         }
       );
-    }
-
-    const responseData = await murfResponse.json();
-
-    if (!responseData.audioFile) {
-      console.error('[TTS] No audioFile in response:', responseData);
-      return new Response(
-        JSON.stringify({
-          error: "use_browser_tts",
-          message: "No audio file in Murf response"
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const audioUrl = responseData.audioFile;
-    console.log('[TTS] Murf audio URL received, returning URL to client for direct streaming');
-
-    return new Response(
-      JSON.stringify({
-        audioUrl: audioUrl,
-        success: true
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('[TTS] Request timeout after 20s');
+        return new Response(
+          JSON.stringify({
+            error: "use_browser_tts",
+            message: "TTS request timeout, using browser fallback"
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-    );
+      throw fetchError;
+    }
 
   } catch (error) {
     console.error('[TTS] Error:', error);

@@ -240,10 +240,13 @@ export function VoiceMode({
         try {
           const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
             ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
             : 'audio/webm';
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
-            audioBitsPerSecond: 128000
+            audioBitsPerSecond: 256000,
+            bitsPerSecond: 256000
           });
 
           mediaRecorderRef.current.ondataavailable = (event) => {
@@ -360,12 +363,17 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
-        audioContextRef.current = new AudioContext();
+        audioContextRef.current = new AudioContext({
+          latencyHint: 'interactive',
+          sampleRate: 48000
+        });
         analyserRef.current = audioContextRef.current.createAnalyser();
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
-        analyserRef.current.fftSize = 256;
-        analyserRef.current.smoothingTimeConstant = 0.92;
+        analyserRef.current.fftSize = 512;
+        analyserRef.current.smoothingTimeConstant = 0.85;
+        analyserRef.current.minDecibels = -90;
+        analyserRef.current.maxDecibels = -10;
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
@@ -383,14 +391,16 @@ export function VoiceMode({
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          const lowFreqData = dataArray.slice(2, 8);
-          const midFreqData = dataArray.slice(8, 20);
+          const lowFreqData = dataArray.slice(3, 12);
+          const midFreqData = dataArray.slice(12, 32);
+          const highFreqData = dataArray.slice(32, 48);
 
           const lowAvg = lowFreqData.reduce((a, b) => a + b, 0) / lowFreqData.length;
           const midAvg = midFreqData.reduce((a, b) => a + b, 0) / midFreqData.length;
+          const highAvg = highFreqData.reduce((a, b) => a + b, 0) / highFreqData.length;
 
-          const weightedLevel = (lowAvg * 0.6 + midAvg * 0.4) * 1.8;
-          setMicAudioLevel(weightedLevel);
+          const weightedLevel = (lowAvg * 0.5 + midAvg * 0.35 + highAvg * 0.15) * 1.6;
+          setMicAudioLevel(Math.min(100, weightedLevel));
 
           if (!soundDetected && weightedLevel > 5) {
             soundDetected = true;
@@ -408,7 +418,7 @@ export function VoiceMode({
           const silenceDuration = Date.now() - lastSoundTime;
           const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
 
-          if (speechDuration > 800 && silenceDuration > 1200) {
+          if (speechDuration > 600 && silenceDuration > 1000) {
             if (mediaRecorderRef.current?.state === 'recording') {
               console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
               console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');

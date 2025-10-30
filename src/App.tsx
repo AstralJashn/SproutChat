@@ -719,6 +719,8 @@ function App() {
             const audio = new Audio();
             audio.preload = 'auto';
             audio.crossOrigin = 'anonymous';
+            audio.volume = 1.0;
+            audio.playbackRate = 1.0;
             currentAudioRef.current = audio;
 
             audio.onended = () => {
@@ -768,7 +770,7 @@ function App() {
                     resolve();
                   });
                 }
-              }, 2000);
+              }, 1500);
 
               audio.oncanplay = async () => {
                 if (!hasStarted) {
@@ -823,21 +825,31 @@ function App() {
   const startSpeechVisualization = () => {
     let pulseDirection = 1;
     let currentLevel = 0;
+    let lastTimestamp = performance.now();
     isSpeakingRef.current = true;
 
-    const animate = () => {
+    const animate = (timestamp: number) => {
       if (!isSpeakingRef.current) return;
 
-      currentLevel += 0.02 * pulseDirection;
-      if (currentLevel >= 0.8) pulseDirection = -1;
-      if (currentLevel <= 0.3) pulseDirection = 1;
+      const deltaTime = (timestamp - lastTimestamp) / 16.67;
+      lastTimestamp = timestamp;
 
-      setResponseAudioLevel(currentLevel);
+      currentLevel += 0.025 * pulseDirection * deltaTime;
+      if (currentLevel >= 0.85) {
+        pulseDirection = -1;
+        currentLevel = 0.85;
+      }
+      if (currentLevel <= 0.35) {
+        pulseDirection = 1;
+        currentLevel = 0.35;
+      }
+
+      setResponseAudioLevel(Math.round(currentLevel * 100));
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationFrameRef.current = requestAnimationFrame(animate);
   };
 
   const stopSpeechVisualization = () => {

@@ -63,49 +63,75 @@ Deno.serve(async (req: Request) => {
     groqFormData.append('file', audioFile);
     groqFormData.append('model', model as string);
     groqFormData.append('language', language as string);
+    groqFormData.append('temperature', '0.0');
+    groqFormData.append('response_format', 'verbose_json');
 
     console.log('[STT] Sending to Groq Whisper API');
 
-    const groqResponse = await fetch(
-      'https://api.groq.com/openai/v1/audio/transcriptions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${groqApiKey}`,
-        },
-        body: groqFormData,
-      }
-    );
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    if (!groqResponse.ok) {
-      const errorText = await groqResponse.text();
-      console.error('[STT] Groq API error:', groqResponse.status, errorText);
-      return new Response(
-        JSON.stringify({
-          error: "Whisper API failed",
-          details: errorText,
-          status: groqResponse.status
-        }),
+    try {
+      const groqResponse = await fetch(
+        'https://api.groq.com/openai/v1/audio/transcriptions',
         {
-          status: groqResponse.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${groqApiKey}`,
+          },
+          body: groqFormData,
+          signal: controller.signal,
         }
       );
-    }
 
-    const result = await groqResponse.json();
-    console.log('[STT] Transcription successful:', result.text?.length || 0, 'chars');
+      clearTimeout(timeoutId);
 
-    return new Response(
-      JSON.stringify(result),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+      if (!groqResponse.ok) {
+        const errorText = await groqResponse.text();
+        console.error('[STT] Groq API error:', groqResponse.status, errorText);
+        return new Response(
+          JSON.stringify({
+            error: "Whisper API failed",
+            details: errorText,
+            status: groqResponse.status
+          }),
+          {
+            status: groqResponse.status,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
       }
-    );
+
+      const result = await groqResponse.json();
+      console.log('[STT] Transcription successful:', result.text?.length || 0, 'chars');
+
+      return new Response(
+        JSON.stringify(result),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        console.error('[STT] Request timeout after 25s');
+        return new Response(
+          JSON.stringify({
+            error: "Request timeout",
+            message: "Speech recognition took too long"
+          }),
+          {
+            status: 408,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      throw fetchError;
+    }
 
   } catch (error) {
     console.error('[STT] Error:', error);
