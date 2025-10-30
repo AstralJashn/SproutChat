@@ -130,7 +130,7 @@ export function VoiceMode({
         if (mediaRecorderRef.current.state === 'inactive') {
           audioChunksRef.current = [];
           try {
-            const chunkSize = isMobile ? 300 : 100;
+            const chunkSize = isMobile ? 200 : 100;
             mediaRecorderRef.current.start(chunkSize);
             console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
           } catch (e) {
@@ -300,20 +300,19 @@ export function VoiceMode({
             ? 'audio/mp4'
             : 'audio/webm';
 
-          const bitrate = isMobile ? 96000 : 256000;
+          const bitrate = isMobile ? 64000 : 128000;
 
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
-            audioBitsPerSecond: bitrate,
-            bitsPerSecond: bitrate
+            audioBitsPerSecond: bitrate
           });
 
           mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
-              if (isMobile && audioChunksRef.current.length > 50) {
+              if (isMobile && audioChunksRef.current.length > 40) {
                 console.log('[VoiceMode] ⚠️ Mobile: Too many chunks, clearing old data');
-                audioChunksRef.current = audioChunksRef.current.slice(-30);
+                audioChunksRef.current = audioChunksRef.current.slice(-25);
               }
             }
           };
@@ -452,7 +451,7 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
-        const sampleRate = isMobile ? 16000 : 48000;
+        const sampleRate = isMobile ? 22050 : 48000;
         audioContextRef.current = new AudioContext({
           latencyHint: 'interactive',
           sampleRate
@@ -461,9 +460,9 @@ export function VoiceMode({
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
 
-        analyserRef.current.fftSize = isMobile ? 32 : 512;
-        analyserRef.current.maxDecibels = isMobile ? -20 : -10;
-        analyserRef.current.smoothingTimeConstant = isMobile ? 0.7 : 0.85;
+        analyserRef.current.fftSize = isMobile ? 64 : 512;
+        analyserRef.current.maxDecibels = isMobile ? -15 : -10;
+        analyserRef.current.smoothingTimeConstant = isMobile ? 0.6 : 0.85;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
 

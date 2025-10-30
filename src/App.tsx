@@ -724,7 +724,7 @@ function App() {
           if (jsonData.success && jsonData.audioUrl) {
             console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
             const audio = new Audio();
-            audio.preload = isMobile ? 'metadata' : 'auto';
+            audio.preload = 'auto';
             audio.crossOrigin = 'anonymous';
             audio.volume = 1.0;
             audio.playbackRate = 1.0;
@@ -766,7 +766,7 @@ function App() {
 
             return new Promise<void>((resolve) => {
               let hasStarted = false;
-              const bufferTimeout = isMobile ? 2000 : 1500;
+              const bufferTimeout = isMobile ? 600 : 400;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
                   console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
@@ -790,7 +790,7 @@ function App() {
                 console.log('[TTS] Metadata loaded, duration:', audio.duration);
               };
 
-              audio.oncanplay = async () => {
+              audio.oncanplaythrough = async () => {
                 if (!hasStarted) {
                   clearTimeout(timeoutId);
                   hasStarted = true;
