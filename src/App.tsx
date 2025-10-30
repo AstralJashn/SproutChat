@@ -318,15 +318,23 @@ function App() {
           })
         });
 
+        const contentType = response.headers.get('Content-Type') || '';
+
         if (!response.ok) {
+          if (contentType.includes('application/json')) {
+            try {
+              const errorData = await response.json();
+              throw new Error(errorData.error || `API error: ${response.status}`);
+            } catch (e) {
+              throw new Error(`API error: ${response.status}`);
+            }
+          }
           throw new Error(`API error: ${response.status}`);
         }
 
         if (!response.body) {
           throw new Error('No response body');
         }
-
-        const contentType = response.headers.get('Content-Type') || '';
 
         if (contentType.includes('application/json')) {
           const jsonData = await response.json();
@@ -354,8 +362,8 @@ function App() {
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
-              const jsonStr = line.slice(6);
-              if (jsonStr === '[DONE]') continue;
+              const jsonStr = line.slice(6).trim();
+              if (!jsonStr || jsonStr === '[DONE]') continue;
 
               try {
                 const parsed = JSON.parse(jsonStr);
@@ -375,7 +383,9 @@ function App() {
                   });
                 }
               } catch (e) {
-                console.warn('[API] Failed to parse chunk:', e);
+                if (jsonStr && jsonStr.length > 0) {
+                  console.warn('[API] Failed to parse chunk:', jsonStr.substring(0, 50), e);
+                }
               }
             }
           }
