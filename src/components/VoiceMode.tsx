@@ -227,7 +227,13 @@ export function VoiceMode({
         console.log('[VoiceMode] ✓ Microphone permission granted');
 
         try {
-          mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : 'audio/webm';
+          mediaRecorderRef.current = new MediaRecorder(stream, {
+            mimeType,
+            audioBitsPerSecond: 64000
+          });
 
           mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
@@ -347,8 +353,8 @@ export function VoiceMode({
         analyserRef.current = audioContextRef.current.createAnalyser();
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
-        analyserRef.current.fftSize = 512;
-        analyserRef.current.smoothingTimeConstant = 0.6;
+        analyserRef.current.fftSize = 256;
+        analyserRef.current.smoothingTimeConstant = 0.8;
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
@@ -424,23 +430,28 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
-    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening) {
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && !isRestartingRef.current) {
       console.log('[VoiceMode] Response finished, restarting recognition...');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
+      isRestartingRef.current = true;
 
       setTimeout(() => {
-        if (recognitionRef.current) {
+        if (recognitionRef.current && !isListening) {
           try {
             recognitionRef.current.start();
             setIsListening(true);
+            isRestartingRef.current = false;
             console.log('[VoiceMode] Recognition restarted after response');
           } catch (err: any) {
             console.error('[VoiceMode] Error restarting:', err);
+            isRestartingRef.current = false;
           }
+        } else {
+          isRestartingRef.current = false;
         }
-      }, 300);
+      }, 500);
     }
   }, [isSpeaking, isProcessing, isListening]);
 
@@ -654,26 +665,6 @@ export function VoiceMode({
         <X className="w-6 h-6" />
       </button>
 
-      {isListening && transcript && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log('[VoiceMode] Manual submit button clicked');
-            if (transcript.trim()) {
-              isProcessingTranscriptRef.current = true;
-              hasSubmittedTranscriptRef.current = true;
-              if (recognitionRef.current) {
-                recognitionRef.current.stop();
-              }
-              onTranscript(transcript);
-              setTranscript('');
-            }
-          }}
-          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white z-50 pointer-events-auto bg-emerald-600 hover:bg-emerald-500 rounded-full px-6 py-3 font-medium transition-colors shadow-lg"
-        >
-          Submit
-        </button>
-      )}
 
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
         <img
