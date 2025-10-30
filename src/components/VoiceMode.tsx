@@ -179,20 +179,10 @@ export function VoiceMode({
       }
     };
 
-    console.log('[VoiceMode] Attempting to start recognition...');
-    try {
-      recognition.start();
-      console.log('[VoiceMode] recognition.start() called successfully');
-      setIsListening(true);
-    } catch (error) {
-      console.error('[VoiceMode] ❌ Error calling recognition.start():', error);
-      console.error('[VoiceMode] Error type:', error instanceof DOMException ? 'DOMException' : typeof error);
-      console.error('[VoiceMode] Error name:', (error as any)?.name);
-      console.error('[VoiceMode] Error message:', (error as any)?.message);
-    }
-
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((stream) => {
+        console.log('[VoiceMode] ✓ Microphone permission granted');
+
         audioContextRef.current = new AudioContext();
         analyserRef.current = audioContextRef.current.createAnalyser();
         const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -201,6 +191,7 @@ export function VoiceMode({
         analyserRef.current.smoothingTimeConstant = 0.6;
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        let soundDetected = false;
         const updateAudioLevel = () => {
           if (!analyserRef.current) return;
           analyserRef.current.getByteFrequencyData(dataArray);
@@ -214,9 +205,23 @@ export function VoiceMode({
           const weightedLevel = (lowAvg * 0.7 + midAvg * 0.3) * 2.5;
           setMicAudioLevel(weightedLevel);
 
+          if (!soundDetected && weightedLevel > 5) {
+            soundDetected = true;
+            console.log('[VoiceMode] 🎤 Sound detected! Mic is working. Level:', weightedLevel);
+          }
+
           requestAnimationFrame(updateAudioLevel);
         };
         updateAudioLevel();
+
+        console.log('[VoiceMode] Attempting to start recognition...');
+        try {
+          recognition.start();
+          console.log('[VoiceMode] recognition.start() called successfully');
+          setIsListening(true);
+        } catch (error) {
+          console.error('[VoiceMode] ❌ Error calling recognition.start():', error);
+        }
       })
       .catch((error) => {
         console.error('[VoiceMode] ❌ Microphone access denied or error:', error);
