@@ -318,6 +318,8 @@ export function VoiceMode({
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
+        let lastSoundTime = Date.now();
+        let speechStartTime = 0;
         const updateAudioLevel = () => {
           if (!analyserRef.current) return;
           analyserRef.current.getByteFrequencyData(dataArray);
@@ -334,6 +336,24 @@ export function VoiceMode({
           if (!soundDetected && weightedLevel > 5) {
             soundDetected = true;
             console.log('[VoiceMode] 🎤 Sound detected! Mic is working. Level:', weightedLevel);
+          }
+
+          if (weightedLevel > 8) {
+            lastSoundTime = Date.now();
+            if (speechStartTime === 0) {
+              speechStartTime = Date.now();
+            }
+          }
+
+          const silenceDuration = Date.now() - lastSoundTime;
+          const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
+
+          if (speechDuration > 1000 && silenceDuration > 1500 && mediaRecorderRef.current?.state === 'recording' && !lastTranscriptRef.current.trim()) {
+            console.log('[VoiceMode] 🔇 Silence detected after speech, triggering Whisper fallback');
+            speechStartTime = 0;
+            if (mediaRecorderRef.current.state === 'recording') {
+              mediaRecorderRef.current.stop();
+            }
           }
 
           requestAnimationFrame(updateAudioLevel);
