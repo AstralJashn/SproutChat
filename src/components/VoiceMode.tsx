@@ -166,9 +166,16 @@ export function VoiceMode({
     };
 
     recognition.onend = () => {
-      console.log('[VoiceMode] Recognition ended, hasSubmitted:', hasSubmittedTranscriptRef.current);
+      console.log('[VoiceMode] Recognition ended', {
+        hasSubmitted: hasSubmittedTranscriptRef.current,
+        isProcessing: isProcessingTranscriptRef.current,
+        currentListeningState: isListening
+      });
       if (!hasSubmittedTranscriptRef.current && !isProcessingTranscriptRef.current) {
+        console.log('[VoiceMode] Setting isListening to false (no transcript submitted)');
         setIsListening(false);
+      } else {
+        console.log('[VoiceMode] Keeping listening state (transcript was submitted, will restart after processing)');
       }
     };
 

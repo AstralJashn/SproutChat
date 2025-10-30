@@ -730,6 +730,12 @@ function App() {
               setIsVoiceProcessing(false);
               setIsGenerating(false);
               stopSpeechVisualization();
+              console.log('[TTS] State reset complete', {
+                isSpeaking: false,
+                isVoiceProcessing: false,
+                isGenerating: false,
+                timestamp: new Date().toISOString()
+              });
             };
 
             audio.onerror = (e) => {
