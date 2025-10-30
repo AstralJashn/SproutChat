@@ -358,13 +358,14 @@ export function VoiceMode({
                   const text = result.text?.trim();
 
                   if (text) {
-                    console.log('[VoiceMode] ✅ Whisper fallback transcript:', text);
+                    console.log('[VoiceMode] ✅ Whisper transcript:', text);
                     lastTranscriptRef.current = text;
                     setTranscript(text);
 
                     if (!isProcessingTranscriptRef.current) {
                       isProcessingTranscriptRef.current = true;
                       hasSubmittedTranscriptRef.current = true;
+                      setIsListening(false);
                       onTranscript(text);
                       setTranscript('');
                       lastTranscriptRef.current = '';
