@@ -220,7 +220,7 @@ export function VoiceMode({
   useEffect(() => {
     console.log('[VoiceMode] Restart check:', { isSpeaking, isProcessing, isListening, hasSubmitted: hasSubmittedTranscriptRef.current, hasRecognition: !!recognitionRef.current });
 
-    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && hasSubmittedTranscriptRef.current) {
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening) {
       console.log('[VoiceMode] ✅ RESTARTING recognition...');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
