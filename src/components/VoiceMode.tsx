@@ -293,8 +293,8 @@ export function VoiceMode({
         }
 
         const gradient = ctx.createRadialGradient(
-          centerX, centerY, ripple.radius - 1,
-          centerX, centerY, ripple.radius + 1
+          centerX, centerY, Math.max(0, ripple.radius - 1),
+          centerX, centerY, Math.max(1, ripple.radius + 1)
         );
 
         if (isSpeaking || isListening) {
