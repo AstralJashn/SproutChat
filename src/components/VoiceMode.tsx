@@ -242,14 +242,31 @@ export function VoiceMode({
             if (audioChunksRef.current.length > 0 && !lastTranscriptRef.current.trim()) {
               console.log('[VoiceMode] 🔄 Fallback: Sending audio to Whisper API');
 
-              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+              const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+              console.log('[VoiceMode] Audio blob size:', audioBlob.size, 'bytes');
               audioChunksRef.current = [];
+
+              if (audioBlob.size < 100) {
+                console.log('[VoiceMode] Audio blob too small, skipping Whisper');
+                setTimeout(() => {
+                  if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+                    try {
+                      recognitionRef.current.start();
+                    } catch (e) {
+                      console.log('[VoiceMode] Recognition already running');
+                    }
+                  }
+                }, 500);
+                return;
+              }
 
               try {
                 const formData = new FormData();
                 formData.append('file', audioBlob, 'audio.webm');
                 formData.append('model', 'whisper-large-v3');
                 formData.append('language', 'en');
+
+                console.log('[VoiceMode] FormData created, file size:', audioBlob.size);
 
                 const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
                   method: 'POST',
