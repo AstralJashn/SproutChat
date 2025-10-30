@@ -475,6 +475,10 @@ export function VoiceMode({
         const updateAudioLevel = () => {
           if (!analyserRef.current || !audioContextRef.current) return;
 
+          if (isMobile && isProcessing) {
+            return;
+          }
+
           if (audioContextRef.current.state === 'suspended' && isMobile) {
             audioContextRef.current.resume();
           }
@@ -679,7 +683,24 @@ export function VoiceMode({
         }
       }
     }
-  }, [isProcessing, isListening]);
+
+    if (isMobile && isSpeaking) {
+      if (audioIntervalRef.current) {
+        console.log('[VoiceMode] 📱 Clearing audio interval during speech on mobile');
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state === 'running') {
+        console.log('[VoiceMode] 📱 Suspending audio context during speech on mobile');
+        audioContextRef.current.suspend();
+      }
+    } else if (isMobile && !isSpeaking && !isProcessing && audioContextRef.current) {
+      if (audioContextRef.current.state === 'suspended') {
+        console.log('[VoiceMode] 📱 Resuming audio context on mobile');
+        audioContextRef.current.resume();
+      }
+    }
+  }, [isProcessing, isListening, isSpeaking, isMobile]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -706,6 +727,12 @@ export function VoiceMode({
     const maxRipples = isMobile ? 1 : 6;
 
     const animate = (timestamp: number) => {
+      if (isMobile && isSpeaking) {
+        ctx.clearRect(0, 0, width, height);
+        animationFrame = requestAnimationFrame(animate);
+        return;
+      }
+
       if (timestamp - lastFrameTime < frameInterval) {
         animationFrame = requestAnimationFrame(animate);
         return;
@@ -789,6 +816,14 @@ export function VoiceMode({
 
     const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
+
+      if (isMobile && isSpeaking) {
+        if (heartRef.current.style.transform !== 'scale(1)') {
+          heartRef.current.style.transform = 'scale(1)';
+        }
+        animationFrame = requestAnimationFrame(animateBeat);
+        return;
+      }
 
       frameCount++;
       if (isMobile && frameCount % frameSkip !== 0) {
