@@ -364,33 +364,32 @@ export function VoiceMode({
         analyserRef.current = audioContextRef.current.createAnalyser();
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
-        analyserRef.current.fftSize = 128;
-        analyserRef.current.smoothingTimeConstant = 0.85;
+        analyserRef.current.fftSize = 256;
+        analyserRef.current.smoothingTimeConstant = 0.92;
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
         let lastSoundTime = Date.now();
         let speechStartTime = 0;
-        let lastUpdateTime = 0;
+        let frameCount = 0;
         const updateAudioLevel = () => {
           if (!analyserRef.current) return;
 
-          const now = Date.now();
-          if (now - lastUpdateTime < 100) {
+          frameCount++;
+          if (frameCount % 2 !== 0) {
             requestAnimationFrame(updateAudioLevel);
             return;
           }
-          lastUpdateTime = now;
 
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          const lowFreqData = dataArray.slice(0, 20);
-          const midFreqData = dataArray.slice(20, 50);
+          const lowFreqData = dataArray.slice(2, 8);
+          const midFreqData = dataArray.slice(8, 20);
 
           const lowAvg = lowFreqData.reduce((a, b) => a + b, 0) / lowFreqData.length;
           const midAvg = midFreqData.reduce((a, b) => a + b, 0) / midFreqData.length;
 
-          const weightedLevel = (lowAvg * 0.7 + midAvg * 0.3) * 2.5;
+          const weightedLevel = (lowAvg * 0.6 + midAvg * 0.4) * 1.8;
           setMicAudioLevel(weightedLevel);
 
           if (!soundDetected && weightedLevel > 5) {
@@ -545,11 +544,11 @@ export function VoiceMode({
 
       ctx.clearRect(0, 0, width, height);
 
-      const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevel / 100) : isListening && micAudioLevel > 15 ? Math.min(1, micAudioLevel / 100) : 0.3;
-      const rippleInterval = isSpeaking ? 400 : isListening && micAudioLevel > 15 ? Math.max(200, 600 - (micAudioLevel * 3)) : 1800;
+      const audioIntensity = isSpeaking ? Math.max(0.5, responseAudioLevel / 100) : isListening && micAudioLevel > 20 ? Math.min(1, micAudioLevel / 100) : 0.3;
+      const rippleInterval = isSpeaking ? 600 : isListening && micAudioLevel > 25 ? Math.max(400, 800 - (micAudioLevel * 2)) : 2000;
 
-      if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 15))) {
-        if (ripples.length < 8) {
+      if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
+        if (ripples.length < 6) {
           ripples.push({
             radius: 0,
             opacity: 0.5,
