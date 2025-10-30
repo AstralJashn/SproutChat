@@ -724,7 +724,7 @@ function App() {
           if (jsonData.success && jsonData.audioUrl) {
             console.log('[TTS] ✅ Received audio URL, streaming directly from Murf...');
             const audio = new Audio();
-            audio.preload = 'auto';
+            audio.preload = isMobile ? 'metadata' : 'auto';
             audio.crossOrigin = 'anonymous';
             audio.volume = 1.0;
             audio.playbackRate = 1.0;
@@ -766,8 +766,7 @@ function App() {
 
             return new Promise<void>((resolve) => {
               let hasStarted = false;
-              let hasLoaded = false;
-              const bufferTimeout = isMobile ? 5000 : 1500;
+              const bufferTimeout = isMobile ? 2000 : 1500;
               const timeoutId = setTimeout(() => {
                 if (!hasStarted) {
                   console.log('[TTS] ⚠️ Buffering timeout, starting playback anyway');
@@ -788,18 +787,16 @@ function App() {
               }, bufferTimeout);
 
               audio.onloadedmetadata = () => {
-                hasLoaded = true;
                 console.log('[TTS] Metadata loaded, duration:', audio.duration);
               };
 
-              audio.oncanplaythrough = async () => {
-                if (!hasStarted && hasLoaded) {
+              audio.oncanplay = async () => {
+                if (!hasStarted) {
                   clearTimeout(timeoutId);
                   hasStarted = true;
-                  console.log('[TTS] ✅ Audio buffered and ready (canplaythrough)');
+                  console.log('[TTS] ✅ Audio ready to play');
                   try {
                     isSpeakingRef.current = true;
-                    console.log('[TTS] Starting playback from canplaythrough');
                     await audio.play();
                     startSpeechVisualization();
                     resolve();
@@ -808,28 +805,6 @@ function App() {
                     isSpeakingRef.current = false;
                     setIsSpeaking(false);
                     resolve();
-                  }
-                }
-              };
-
-              audio.oncanplay = async () => {
-                if (!hasStarted && hasLoaded) {
-                  await new Promise(r => setTimeout(r, 100));
-                  if (!hasStarted) {
-                    clearTimeout(timeoutId);
-                    hasStarted = true;
-                    console.log('[TTS] ✅ Audio ready to play (canplay fallback)');
-                    try {
-                      isSpeakingRef.current = true;
-                      await audio.play();
-                      startSpeechVisualization();
-                      resolve();
-                    } catch (playError) {
-                      console.error('[TTS] Play error:', playError);
-                      isSpeakingRef.current = false;
-                      setIsSpeaking(false);
-                      resolve();
-                    }
                   }
                 }
               };
