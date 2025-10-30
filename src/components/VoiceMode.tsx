@@ -46,7 +46,7 @@ export function VoiceMode({
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const backgroundSparks = useMemo(() => {
-    const count = isMobile ? 3 : 6;
+    const count = isMobile ? 2 : 6;
     return [...Array(count)].map((_, i) => ({
       key: `spark-${i}`,
       left: `${Math.random() * 100}%`,
@@ -59,7 +59,7 @@ export function VoiceMode({
   }, [isMobile]);
 
   const backgroundEmbers = useMemo(() => {
-    const count = isMobile ? 1 : 3;
+    const count = isMobile ? 0 : 3;
     return [...Array(count)].map((_, i) => ({
       key: `ember-${i}`,
       left: `${15 + Math.random() * 70}%`,
@@ -70,7 +70,7 @@ export function VoiceMode({
   }, [isMobile]);
 
   const backgroundHeartbeats = useMemo(() => {
-    const count = isMobile ? 1 : 2;
+    const count = isMobile ? 0 : 2;
     return [...Array(count)].map((_, i) => ({
       key: `heartbeat-${i}`,
       left: `${25 + i * 50}%`,
@@ -554,7 +554,7 @@ export function VoiceMode({
         };
 
         if (isMobile) {
-          audioIntervalRef.current = setInterval(updateAudioLevel, 200);
+          audioIntervalRef.current = setInterval(updateAudioLevel, 250);
         } else {
           let frameCount = 0;
           const rafUpdate = () => {
@@ -701,9 +701,9 @@ export function VoiceMode({
     let lastRippleTime = 0;
     let lastFrameTime = 0;
     const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
-    const targetFPS = isMobile ? 15 : 30;
+    const targetFPS = isMobile ? 10 : 30;
     const frameInterval = 1000 / targetFPS;
-    const maxRipples = isMobile ? 2 : 6;
+    const maxRipples = isMobile ? 1 : 6;
 
     const animate = (timestamp: number) => {
       if (timestamp - lastFrameTime < frameInterval) {
@@ -731,8 +731,8 @@ export function VoiceMode({
       for (let i = ripples.length - 1; i >= 0; i--) {
         const ripple = ripples[i];
 
-        ripple.radius += 1.5 * audioIntensity;
-        ripple.opacity -= 0.004;
+        ripple.radius += isMobile ? 3 : 1.5 * audioIntensity;
+        ripple.opacity -= isMobile ? 0.01 : 0.004;
 
         if (ripple.opacity <= 0 || ripple.radius > ripple.maxRadius) {
           ripples.splice(i, 1);
@@ -741,9 +741,9 @@ export function VoiceMode({
 
         if (isMobile) {
           ctx.strokeStyle = (isSpeaking || isListening)
-            ? `rgba(16, 185, 129, ${ripple.opacity * 0.4})`
-            : `rgba(156, 163, 175, ${ripple.opacity * 0.25})`;
-          ctx.lineWidth = 1.5;
+            ? `rgba(16, 185, 129, ${ripple.opacity * 0.3})`
+            : `rgba(156, 163, 175, ${ripple.opacity * 0.2})`;
+          ctx.lineWidth = 1;
         } else {
           const gradient = ctx.createRadialGradient(
             centerX, centerY, Math.max(0, ripple.radius - 1),
@@ -785,7 +785,7 @@ export function VoiceMode({
     let currentScale = 1;
     let targetScale = 1;
     let frameCount = 0;
-    const frameSkip = isMobile ? 3 : 1;
+    const frameSkip = isMobile ? 5 : 1;
 
     const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
@@ -841,8 +841,8 @@ export function VoiceMode({
       </div>
 
       <div className="absolute inset-0 sm:hidden">
-        <div className="absolute top-20 left-5 w-[250px] h-[250px] bg-gradient-to-br from-emerald-500/12 to-emerald-600/4 rounded-full filter blur-[40px]" style={{ animationDelay: '0s', transform: 'translateZ(0)', willChange: 'transform' }}></div>
-        <div className="absolute top-40 right-5 w-[250px] h-[250px] bg-gradient-to-br from-cyan-500/12 to-cyan-600/4 rounded-full filter blur-[40px]" style={{ animationDelay: '1s', transform: 'translateZ(0)', willChange: 'transform' }}></div>
+        <div className="absolute top-20 left-5 w-[200px] h-[200px] bg-gradient-to-br from-emerald-500/8 to-emerald-600/2 rounded-full filter blur-[20px]" style={{ transform: 'translateZ(0)' }}></div>
+        <div className="absolute top-40 right-5 w-[200px] h-[200px] bg-gradient-to-br from-cyan-500/8 to-cyan-600/2 rounded-full filter blur-[20px]" style={{ transform: 'translateZ(0)' }}></div>
       </div>
 
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
