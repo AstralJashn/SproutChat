@@ -293,6 +293,11 @@ export function VoiceMode({
           mediaRecorderRef.current.onstop = async () => {
             console.log('[VoiceMode] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
 
+            if (isRestartingRef.current) {
+              console.log('[VoiceMode] MediaRecorder stopped during restart - skipping processing');
+              return;
+            }
+
             if (audioChunksRef.current.length > 0 && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
               console.log('[VoiceMode] 🔄 Sending audio to Whisper API for transcription');
 
@@ -624,11 +629,12 @@ export function VoiceMode({
       lastTranscriptRef.current = '';
       isRestartingRef.current = true;
 
+      audioChunksRef.current = [];
+
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        console.log('[VoiceMode] Stopping MediaRecorder before restart');
+        console.log('[VoiceMode] Stopping MediaRecorder before restart (chunks already cleared)');
         mediaRecorderRef.current.stop();
       }
-      audioChunksRef.current = [];
 
       setTimeout(() => {
         if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
@@ -684,10 +690,89 @@ export function VoiceMode({
         console.log('[VoiceMode] 📱 Suspending audio context during speech on mobile');
         audioContextRef.current.suspend();
       }
-    } else if (isMobile && !isSpeaking && !isProcessing && audioContextRef.current) {
+    } else if (isMobile && !isSpeaking && !isProcessing && audioContextRef.current && analyserRef.current) {
       if (audioContextRef.current.state === 'suspended') {
         console.log('[VoiceMode] 📱 Resuming audio context on mobile');
         audioContextRef.current.resume();
+      }
+
+      if (!audioIntervalRef.current) {
+        console.log('[VoiceMode] 📱 Restarting audio interval on mobile');
+        let soundDetected = false;
+        let lastSoundTime = Date.now();
+        let speechStartTime = 0;
+        const lastUpdateTime = { current: Date.now() };
+
+        const updateAudioLevel = () => {
+          if (!analyserRef.current || !audioContextRef.current) return;
+
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+
+          let sum = 0;
+          let count = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > 0) {
+              sum += dataArray[i];
+              count++;
+            }
+          }
+
+          const avgLevel = sum / count;
+          const weightedLevel = avgLevel * 1.3;
+          const clampedLevel = Math.min(100, weightedLevel);
+
+          const now = Date.now();
+          const shouldUpdate = Math.abs(micAudioLevelRef.current - clampedLevel) > 20 &&
+                              (now - lastUpdateTime.current) > 150;
+
+          if (shouldUpdate) {
+            micAudioLevelRef.current = clampedLevel;
+            lastUpdateTime.current = now;
+            setMicAudioLevel(clampedLevel);
+          } else {
+            micAudioLevelRef.current = clampedLevel;
+          }
+
+          if (!soundDetected && weightedLevel > 5) {
+            soundDetected = true;
+          }
+
+          if (weightedLevel > 8) {
+            lastSoundTime = Date.now();
+            if (speechStartTime === 0) {
+              speechStartTime = Date.now();
+            }
+          }
+
+          const silenceDuration = Date.now() - lastSoundTime;
+          const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
+
+          if (audioContextRef.current && silenceDuration > 5000 && speechDuration === 0) {
+            if (audioContextRef.current.state === 'running') {
+              audioContextRef.current.suspend();
+            }
+          }
+
+          const minSpeechDuration = 300;
+          const minSilenceDuration = 500;
+
+          if (speechDuration > minSpeechDuration && silenceDuration > minSilenceDuration) {
+            if (mediaRecorderRef.current?.state === 'recording') {
+              speechStartTime = 0;
+              mediaRecorderRef.current.stop();
+            } else if (recognitionRef.current && !isProcessingTranscriptRef.current) {
+              speechStartTime = 0;
+              try {
+                recognitionRef.current.stop();
+              } catch (e) {
+                console.error('[VoiceMode] Error stopping recognition:', e);
+              }
+            }
+          }
+        };
+
+        audioIntervalRef.current = setInterval(updateAudioLevel, 350);
       }
     }
   }, [isProcessing, isListening, isSpeaking, isMobile]);
