@@ -432,22 +432,21 @@ export function VoiceMode({
           console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
         }
 
-        if (!isMobile) {
-          audioContextRef.current = new AudioContext({
-            latencyHint: 'interactive',
-            sampleRate: 48000
-          });
-          analyserRef.current = audioContextRef.current.createAnalyser();
-          const source = audioContextRef.current.createMediaStreamSource(stream);
-          source.connect(analyserRef.current);
+        const sampleRate = isMobile ? 16000 : 48000;
+        audioContextRef.current = new AudioContext({
+          latencyHint: 'interactive',
+          sampleRate
+        });
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        source.connect(analyserRef.current);
 
-          analyserRef.current.fftSize = 512;
-          analyserRef.current.smoothingTimeConstant = 0.85;
-          analyserRef.current.minDecibels = -90;
-          analyserRef.current.maxDecibels = -10;
-        }
+        analyserRef.current.fftSize = isMobile ? 64 : 512;
+        analyserRef.current.smoothingTimeConstant = isMobile ? 0.7 : 0.85;
+        analyserRef.current.minDecibels = -90;
+        analyserRef.current.maxDecibels = -10;
 
-        const dataArray = !isMobile && analyserRef.current ? new Uint8Array(analyserRef.current.frequencyBinCount) : new Uint8Array(0);
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
         let lastSoundTime = Date.now();
         let speechStartTime = 0;
@@ -529,14 +528,23 @@ export function VoiceMode({
         };
 
         if (isMobile) {
-          let animLevel = 50;
           audioIntervalRef.current = setInterval(() => {
-            animLevel = 40 + Math.random() * 35;
-            if (Math.abs(micAudioLevelRef.current - animLevel) > 10) {
-              micAudioLevelRef.current = animLevel;
-              setMicAudioLevel(animLevel);
+            if (!analyserRef.current) return;
+
+            analyserRef.current.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 1; i < 6; i++) {
+              sum += dataArray[i];
             }
-          }, 700);
+            const avgLevel = (sum / 5) * 1.2;
+            const clampedLevel = Math.min(100, avgLevel);
+
+            if (Math.abs(micAudioLevelRef.current - clampedLevel) > 10) {
+              micAudioLevelRef.current = clampedLevel;
+              setMicAudioLevel(clampedLevel);
+            }
+          }, 500);
         } else {
           let frameCount = 0;
           const rafUpdate = () => {
