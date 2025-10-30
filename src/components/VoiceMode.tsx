@@ -130,7 +130,7 @@ export function VoiceMode({
         if (mediaRecorderRef.current.state === 'inactive') {
           audioChunksRef.current = [];
           try {
-            const chunkSize = isMobile ? 200 : 100;
+            const chunkSize = isMobile ? 300 : 100;
             mediaRecorderRef.current.start(chunkSize);
             if (!isMobile) console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
           } catch (e) {
@@ -280,7 +280,7 @@ export function VoiceMode({
             ? 'audio/mp4'
             : 'audio/webm';
 
-          const bitrate = isMobile ? 128000 : 256000;
+          const bitrate = isMobile ? 96000 : 256000;
 
           mediaRecorderRef.current = new MediaRecorder(stream, {
             mimeType,
@@ -442,6 +442,7 @@ export function VoiceMode({
         source.connect(analyserRef.current);
 
         analyserRef.current.fftSize = isMobile ? 32 : 512;
+        analyserRef.current.maxDecibels = isMobile ? -20 : -10;
         analyserRef.current.smoothingTimeConstant = isMobile ? 0.7 : 0.85;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
@@ -479,7 +480,7 @@ export function VoiceMode({
           const weightedLevel = avgLevel * (isMobile ? 1.3 : 1.5);
           const clampedLevel = Math.min(100, weightedLevel);
 
-          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 8 : 2)) {
+          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 15 : 2)) {
             micAudioLevelRef.current = clampedLevel;
             setMicAudioLevel(clampedLevel);
           }
@@ -506,8 +507,8 @@ export function VoiceMode({
             }
           }
 
-          const minSpeechDuration = isMobile ? 400 : 600;
-          const minSilenceDuration = isMobile ? 800 : 1000;
+          const minSpeechDuration = isMobile ? 300 : 600;
+          const minSilenceDuration = isMobile ? 500 : 1000;
 
           if (speechDuration > minSpeechDuration && silenceDuration > minSilenceDuration) {
             if (mediaRecorderRef.current?.state === 'recording') {
@@ -533,7 +534,7 @@ export function VoiceMode({
         };
 
         if (isMobile) {
-          audioIntervalRef.current = setInterval(updateAudioLevel, 300);
+          audioIntervalRef.current = setInterval(updateAudioLevel, 200);
         } else {
           let frameCount = 0;
           const rafUpdate = () => {
@@ -642,7 +643,7 @@ export function VoiceMode({
           });
           isRestartingRef.current = false;
         }
-      }, 800);
+      }, isMobile ? 300 : 800);
     }
   }, [isSpeaking, isProcessing, isListening]);
 
@@ -680,9 +681,9 @@ export function VoiceMode({
     let lastRippleTime = 0;
     let lastFrameTime = 0;
     const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
-    const targetFPS = isMobile ? 20 : 30;
+    const targetFPS = isMobile ? 15 : 30;
     const frameInterval = 1000 / targetFPS;
-    const maxRipples = isMobile ? 3 : 6;
+    const maxRipples = isMobile ? 2 : 6;
 
     const animate = (timestamp: number) => {
       if (timestamp - lastFrameTime < frameInterval) {
@@ -764,7 +765,7 @@ export function VoiceMode({
     let currentScale = 1;
     let targetScale = 1;
     let frameCount = 0;
-    const frameSkip = isMobile ? 2 : 1;
+    const frameSkip = isMobile ? 3 : 1;
 
     const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
