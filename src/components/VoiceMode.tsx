@@ -153,11 +153,11 @@ export function VoiceMode({
       const shouldSubmit = lastTranscriptRef.current.trim() && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current;
 
       if (shouldSubmit) {
+        console.log('[VoiceMode] Submitting transcript, parent will set isProcessing=true');
         isProcessingTranscriptRef.current = true;
         hasSubmittedTranscriptRef.current = true;
         onTranscript(lastTranscriptRef.current);
         setTranscript('');
-        setIsListening(false);
       } else {
         console.log('[VoiceMode] Recognition ended, will auto-restart');
         isRestartingRef.current = true;
@@ -269,6 +269,20 @@ export function VoiceMode({
       }
     }
   }, [isSpeaking, isProcessing, isListening]);
+
+  useEffect(() => {
+    if (isProcessing && isListening) {
+      console.log('[VoiceMode] Processing started, stopping listening');
+      setIsListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {
+          console.error('[VoiceMode] Error stopping recognition:', err);
+        }
+      }
+    }
+  }, [isProcessing, isListening]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
