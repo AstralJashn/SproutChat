@@ -244,7 +244,7 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
-    console.log('[VoiceMode] Restart effect triggered', {
+    console.log('[VoiceMode] Props changed:', {
       isSpeaking,
       isProcessing,
       hasSubmittedTranscript: hasSubmittedTranscriptRef.current,
@@ -252,39 +252,29 @@ export function VoiceMode({
       isListening
     });
 
-    if (!isSpeaking && !isProcessing && hasSubmittedTranscriptRef.current && recognitionRef.current) {
-      console.log('[VoiceMode] ✅ Conditions met - Restarting recognition after TTS complete');
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening) {
+      console.log('[VoiceMode] ✅ TTS/Processing complete and not listening - restarting recognition');
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
 
       setTimeout(() => {
-        console.log('[VoiceMode] Timeout fired - checking recognition state', {
-          hasRecognition: !!recognitionRef.current,
-          isListening
-        });
-
-        if (recognitionRef.current) {
+        if (recognitionRef.current && !isListening) {
           try {
-            console.log('[VoiceMode] Attempting to restart recognition...');
+            console.log('[VoiceMode] Starting recognition...');
             recognitionRef.current.start();
             setIsListening(true);
-            console.log('[VoiceMode] ✅ Recognition restarted successfully');
+            console.log('[VoiceMode] ✅ Recognition started successfully');
           } catch (err: any) {
-            console.error('[VoiceMode] ❌ Error restarting recognition:', err);
+            console.error('[VoiceMode] Error starting recognition:', err);
             if (err.message && err.message.includes('already started')) {
-              console.log('[VoiceMode] Recognition already started, setting isListening=true');
               setIsListening(true);
-            } else {
-              setIsListening(false);
             }
           }
-        } else {
-          console.error('[VoiceMode] ❌ recognitionRef is null, cannot restart');
         }
       }, 500);
     }
-  }, [isSpeaking, isProcessing]);
+  }, [isSpeaking, isProcessing, isListening]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
