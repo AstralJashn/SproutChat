@@ -25,6 +25,7 @@ export function VoiceMode({
   const [transcript, setTranscript] = useState('');
   const [micAudioLevel, setMicAudioLevel] = useState(0);
   const micAudioLevelRef = useRef(0);
+  const lastUpdateTime = useRef(0);
   const isMobile = useMemo(() => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
            (window.innerWidth <= 768);
@@ -503,9 +504,16 @@ export function VoiceMode({
           const weightedLevel = avgLevel * (isMobile ? 1.3 : 1.5);
           const clampedLevel = Math.min(100, weightedLevel);
 
-          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 15 : 2)) {
+          const now = Date.now();
+          const shouldUpdate = Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 20 : 8) &&
+                              (now - lastUpdateTime.current) > (isMobile ? 150 : 100);
+
+          if (shouldUpdate) {
             micAudioLevelRef.current = clampedLevel;
+            lastUpdateTime.current = now;
             setMicAudioLevel(clampedLevel);
+          } else {
+            micAudioLevelRef.current = clampedLevel;
           }
 
           if (!soundDetected && weightedLevel > 5) {
@@ -557,12 +565,12 @@ export function VoiceMode({
         };
 
         if (isMobile) {
-          audioIntervalRef.current = setInterval(updateAudioLevel, 250);
+          audioIntervalRef.current = setInterval(updateAudioLevel, 350);
         } else {
           let frameCount = 0;
           const rafUpdate = () => {
             frameCount++;
-            if (frameCount % 2 === 0) {
+            if (frameCount % 3 === 0) {
               updateAudioLevel();
             }
             requestAnimationFrame(rafUpdate);

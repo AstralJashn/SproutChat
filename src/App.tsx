@@ -848,18 +848,16 @@ function App() {
     let currentLevel = 0;
     let lastTimestamp = performance.now();
     let frameCount = 0;
+    let lastUpdateFrame = 0;
     isSpeakingRef.current = true;
 
     const isMobileDev = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const updateInterval = isMobileDev ? 5 : 3;
 
     const animate = (timestamp: number) => {
       if (!isSpeakingRef.current) return;
 
       frameCount++;
-      if (isMobileDev && frameCount % 2 !== 0) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-        return;
-      }
 
       const deltaTime = (timestamp - lastTimestamp) / 16.67;
       lastTimestamp = timestamp;
@@ -874,7 +872,10 @@ function App() {
         currentLevel = 0.4;
       }
 
-      setResponseAudioLevel(Math.round(currentLevel * 100));
+      if (frameCount - lastUpdateFrame >= updateInterval) {
+        setResponseAudioLevel(Math.round(currentLevel * 100));
+        lastUpdateFrame = frameCount;
+      }
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
