@@ -181,20 +181,17 @@ export function VoiceMode({
       if (!isMobile) console.log('[VoiceMode] 🗣️ Speech ended');
 
       setTimeout(() => {
-        if (!lastTranscriptRef.current.trim()) {
-          console.log('[VoiceMode] ⚠️ Speech ended but no transcript captured - Chrome bug detected');
-          console.log('[VoiceMode] Stopping MediaRecorder and will try Whisper fallback');
+        console.log('[VoiceMode] Speech ended - stopping MediaRecorder to send to Whisper');
 
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-            console.log('[VoiceMode] MediaRecorder stopped for fallback');
-          }
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+          console.log('[VoiceMode] MediaRecorder stopped, will send to Whisper');
+        }
 
-          try {
-            recognition.stop();
-          } catch (e) {
-            console.error('[VoiceMode] Error stopping after speechend:', e);
-          }
+        try {
+          recognition.stop();
+        } catch (e) {
+          console.error('[VoiceMode] Error stopping after speechend:', e);
         }
       }, 100);
     };
@@ -293,8 +290,8 @@ export function VoiceMode({
           mediaRecorderRef.current.onstop = async () => {
             console.log('[VoiceMode] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
 
-            if (audioChunksRef.current.length > 0 && !lastTranscriptRef.current.trim()) {
-              console.log('[VoiceMode] 🔄 Fallback: Sending audio to Whisper API');
+            if (audioChunksRef.current.length > 0 && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+              console.log('[VoiceMode] 🔄 Sending audio to Whisper API for transcription');
 
               const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
               console.log('[VoiceMode] Audio blob size:', audioBlob.size, 'bytes');
