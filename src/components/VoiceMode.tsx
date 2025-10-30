@@ -279,15 +279,25 @@ export function VoiceMode({
                     console.log('[VoiceMode] Whisper returned empty transcript');
                     setTimeout(() => {
                       if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-                        recognitionRef.current.start();
+                        try {
+                          recognitionRef.current.start();
+                        } catch (e) {
+                          console.log('[VoiceMode] Recognition already running, skipping restart');
+                        }
                       }
                     }, 500);
                   }
                 } else {
                   console.error('[VoiceMode] Whisper API error:', response.status);
+                  const errorText = await response.text();
+                  console.error('[VoiceMode] Whisper error details:', errorText);
                   setTimeout(() => {
                     if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-                      recognitionRef.current.start();
+                      try {
+                        recognitionRef.current.start();
+                      } catch (e) {
+                        console.log('[VoiceMode] Recognition already running, skipping restart');
+                      }
                     }
                   }, 500);
                 }
@@ -295,7 +305,11 @@ export function VoiceMode({
                 console.error('[VoiceMode] Whisper fallback error:', err);
                 setTimeout(() => {
                   if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-                    recognitionRef.current.start();
+                    try {
+                      recognitionRef.current.start();
+                    } catch (e) {
+                      console.log('[VoiceMode] Recognition already running, skipping restart');
+                    }
                   }
                 }, 500);
               }
