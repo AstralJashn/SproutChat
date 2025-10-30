@@ -24,6 +24,7 @@ export function VoiceMode({
   const [isListening, setIsListening] = useState(true);
   const [transcript, setTranscript] = useState('');
   const [micAudioLevel, setMicAudioLevel] = useState(0);
+  const micAudioLevelRef = useRef(0);
   const isMobile = useMemo(() => {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
            (window.innerWidth <= 768);
@@ -41,6 +42,7 @@ export function VoiceMode({
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const backgroundSparks = useMemo(() => {
     const count = isMobile ? 3 : 6;
@@ -77,10 +79,14 @@ export function VoiceMode({
   }, [isMobile]);
 
   useEffect(() => {
-    console.log('[VoiceMode] ==== INITIALIZING VOICE MODE ====');
-    console.log('[VoiceMode] Checking for SpeechRecognition...');
+    if (!isMobile) {
+      console.log('[VoiceMode] ==== INITIALIZING VOICE MODE ====');
+      console.log('[VoiceMode] Checking for SpeechRecognition...');
+    }
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    console.log('[VoiceMode] SpeechRecognition available:', !!SpeechRecognition);
+    if (!isMobile) {
+      console.log('[VoiceMode] SpeechRecognition available:', !!SpeechRecognition);
+    }
 
     if (!SpeechRecognition) {
       console.error('[VoiceMode] ❌ Speech recognition NOT supported');
@@ -89,11 +95,11 @@ export function VoiceMode({
       return;
     }
 
-    console.log('[VoiceMode] Creating SpeechRecognition instance...');
+    if (!isMobile) console.log('[VoiceMode] Creating SpeechRecognition instance...');
     let recognition;
     try {
       recognition = new SpeechRecognition();
-      console.log('[VoiceMode] ✓ SpeechRecognition instance created');
+      if (!isMobile) console.log('[VoiceMode] ✓ SpeechRecognition instance created');
     } catch (error) {
       console.error('[VoiceMode] ❌ Failed to create SpeechRecognition:', error);
       alert('Failed to initialize speech recognition');
@@ -106,29 +112,31 @@ export function VoiceMode({
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
 
-    console.log('[VoiceMode] Recognition configured:', {
-      continuous: recognition.continuous,
-      interimResults: recognition.interimResults,
-      lang: recognition.lang
-    });
+    if (!isMobile) {
+      console.log('[VoiceMode] Recognition configured:', {
+        continuous: recognition.continuous,
+        interimResults: recognition.interimResults,
+        lang: recognition.lang
+      });
+    }
 
     recognition.onstart = () => {
-      console.log('[VoiceMode] ✓ Recognition started successfully');
+      if (!isMobile) console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
 
       if (mediaRecorderRef.current) {
-        console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
+        if (!isMobile) console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
         if (mediaRecorderRef.current.state === 'inactive') {
           audioChunksRef.current = [];
           try {
             const chunkSize = isMobile ? 200 : 100;
             mediaRecorderRef.current.start(chunkSize);
-            console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
+            if (!isMobile) console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
           } catch (e) {
             console.error('[VoiceMode] ❌ Failed to start MediaRecorder:', e);
           }
         } else {
-          console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
+          if (!isMobile) console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
         }
       } else {
         console.error('[VoiceMode] ❌ MediaRecorder ref is null!');
@@ -136,19 +144,19 @@ export function VoiceMode({
     };
 
     recognition.onaudiostart = () => {
-      console.log('[VoiceMode] 🎤 Audio capture started');
+      if (!isMobile) console.log('[VoiceMode] 🎤 Audio capture started');
     };
 
     recognition.onsoundstart = () => {
-      console.log('[VoiceMode] 🔊 Sound detected by recognition');
+      if (!isMobile) console.log('[VoiceMode] 🔊 Sound detected by recognition');
     };
 
     recognition.onspeechstart = () => {
-      console.log('[VoiceMode] 🗣️ Speech detected by recognition');
+      if (!isMobile) console.log('[VoiceMode] 🗣️ Speech detected by recognition');
     };
 
     recognition.onspeechend = () => {
-      console.log('[VoiceMode] 🗣️ Speech ended');
+      if (!isMobile) console.log('[VoiceMode] 🗣️ Speech ended');
 
       setTimeout(() => {
         if (!lastTranscriptRef.current.trim()) {
@@ -282,7 +290,10 @@ export function VoiceMode({
           mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
-              console.log('[VoiceMode] Audio chunk recorded:', event.data.size, 'bytes');
+              if (isMobile && audioChunksRef.current.length > 50) {
+                console.log('[VoiceMode] ⚠️ Mobile: Too many chunks, clearing old data');
+                audioChunksRef.current = audioChunksRef.current.slice(-30);
+              }
             }
           };
 
@@ -311,12 +322,31 @@ export function VoiceMode({
               }
 
               try {
+                let finalBlob = audioBlob;
+
+                if (isMobile && audioBlob.size > 500000) {
+                  console.log('[VoiceMode] Mobile: Large audio file, will send as-is but log warning');
+                }
+
                 const formData = new FormData();
-                formData.append('file', audioBlob, 'audio.webm');
+                formData.append('file', finalBlob, 'audio.webm');
                 formData.append('model', 'whisper-large-v3');
                 formData.append('language', 'en');
 
-                console.log('[VoiceMode] FormData created, file size:', audioBlob.size);
+                console.log('[VoiceMode] FormData created, file size:', finalBlob.size);
+
+                if (abortControllerRef.current) {
+                  console.log('[VoiceMode] Aborting previous Whisper request');
+                  abortControllerRef.current.abort();
+                }
+
+                abortControllerRef.current = new AbortController();
+                const timeoutId = setTimeout(() => {
+                  if (abortControllerRef.current) {
+                    console.log('[VoiceMode] Whisper request timeout, aborting');
+                    abortControllerRef.current.abort();
+                  }
+                }, isMobile ? 15000 : 20000);
 
                 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
                 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -326,8 +356,12 @@ export function VoiceMode({
                   headers: {
                     'Authorization': `Bearer ${supabaseAnonKey}`,
                   },
-                  body: formData
+                  body: formData,
+                  signal: abortControllerRef.current.signal
                 });
+
+                clearTimeout(timeoutId);
+                abortControllerRef.current = null;
 
                 if (response.ok) {
                   const result = await response.json();
@@ -371,7 +405,11 @@ export function VoiceMode({
                     }
                   }, 500);
                 }
-              } catch (err) {
+              } catch (err: any) {
+                if (err.name === 'AbortError') {
+                  console.log('[VoiceMode] Whisper request aborted (likely due to new request)');
+                  return;
+                }
                 console.error('[VoiceMode] Whisper fallback error:', err);
                 setTimeout(() => {
                   if (recognitionRef.current && !isProcessingTranscriptRef.current) {
@@ -402,19 +440,26 @@ export function VoiceMode({
         const source = audioContextRef.current.createMediaStreamSource(stream);
         source.connect(analyserRef.current);
 
-        analyserRef.current.fftSize = isMobile ? 256 : 512;
-        analyserRef.current.smoothingTimeConstant = isMobile ? 0.8 : 0.85;
+        analyserRef.current.fftSize = isMobile ? 128 : 512;
+        analyserRef.current.smoothingTimeConstant = isMobile ? 0.75 : 0.85;
         analyserRef.current.minDecibels = -90;
         analyserRef.current.maxDecibels = -10;
+
+        if (isMobile && audioContextRef.current.state === 'running') {
+          console.log('[VoiceMode] Mobile: Suspending AudioContext initially');
+          audioContextRef.current.suspend();
+        }
 
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         let soundDetected = false;
         let lastSoundTime = Date.now();
         let speechStartTime = 0;
         let frameCount = 0;
-        const frameSkip = isMobile ? 3 : 2;
+        const frameSkip = isMobile ? 4 : 2;
+        let lastUpdateTime = 0;
+        const updateInterval = isMobile ? 150 : 50;
 
-        const updateAudioLevel = () => {
+        const updateAudioLevel = (timestamp: number) => {
           if (!analyserRef.current) return;
 
           frameCount++;
@@ -423,19 +468,41 @@ export function VoiceMode({
             return;
           }
 
+          if (isMobile && timestamp - lastUpdateTime < updateInterval) {
+            requestAnimationFrame(updateAudioLevel);
+            return;
+          }
+          lastUpdateTime = timestamp;
+
+          if (audioContextRef.current?.state === 'suspended' && isMobile) {
+            audioContextRef.current.resume();
+          }
+
           analyserRef.current.getByteFrequencyData(dataArray);
 
-          const sliceSize = isMobile ? 6 : 9;
-          const lowFreqData = dataArray.slice(3, 3 + sliceSize);
-          const midFreqData = dataArray.slice(3 + sliceSize, 3 + sliceSize * 2);
-          const highFreqData = dataArray.slice(3 + sliceSize * 2, 3 + sliceSize * 3);
+          const sliceSize = isMobile ? 4 : 9;
+          const lowFreqData = dataArray.slice(2, 2 + sliceSize);
+          const midFreqData = dataArray.slice(2 + sliceSize, 2 + sliceSize * 2);
 
-          const lowAvg = lowFreqData.reduce((a, b) => a + b, 0) / lowFreqData.length;
-          const midAvg = midFreqData.reduce((a, b) => a + b, 0) / midFreqData.length;
-          const highAvg = highFreqData.reduce((a, b) => a + b, 0) / highFreqData.length;
+          let lowSum = 0;
+          let midSum = 0;
+          for (let i = 0; i < lowFreqData.length; i++) {
+            lowSum += lowFreqData[i];
+          }
+          for (let i = 0; i < midFreqData.length; i++) {
+            midSum += midFreqData[i];
+          }
 
-          const weightedLevel = (lowAvg * 0.5 + midAvg * 0.35 + highAvg * 0.15) * 1.6;
-          setMicAudioLevel(Math.min(100, weightedLevel));
+          const lowAvg = lowSum / lowFreqData.length;
+          const midAvg = midSum / midFreqData.length;
+
+          const weightedLevel = (lowAvg * 0.6 + midAvg * 0.4) * 1.5;
+          const clampedLevel = Math.min(100, weightedLevel);
+
+          if (Math.abs(micAudioLevelRef.current - clampedLevel) > (isMobile ? 5 : 2)) {
+            micAudioLevelRef.current = clampedLevel;
+            setMicAudioLevel(clampedLevel);
+          }
 
           if (!soundDetected && weightedLevel > 5) {
             soundDetected = true;
@@ -452,6 +519,12 @@ export function VoiceMode({
 
           const silenceDuration = Date.now() - lastSoundTime;
           const speechDuration = speechStartTime > 0 ? Date.now() - speechStartTime : 0;
+
+          if (isMobile && audioContextRef.current && silenceDuration > 3000 && speechDuration === 0) {
+            if (audioContextRef.current.state === 'running') {
+              audioContextRef.current.suspend();
+            }
+          }
 
           if (speechDuration > 600 && silenceDuration > 1000) {
             if (mediaRecorderRef.current?.state === 'recording') {
@@ -492,13 +565,36 @@ export function VoiceMode({
       });
 
     return () => {
-      recognition.stop();
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
+      console.log('[VoiceMode] Cleanup: Stopping recognition and closing audio');
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.log('[VoiceMode] Recognition already stopped');
       }
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.log('[VoiceMode] MediaRecorder already stopped');
+        }
+      }
+
+      if (audioContextRef.current) {
+        if (audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().then(() => {
+            console.log('[VoiceMode] AudioContext closed');
+          }).catch((e) => {
+            console.log('[VoiceMode] AudioContext close error:', e);
+          });
+        }
+      }
+
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
+
+      audioChunksRef.current = [];
     };
   }, [onTranscript, onClose, onStopListening]);
 
