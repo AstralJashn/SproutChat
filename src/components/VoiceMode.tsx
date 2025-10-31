@@ -700,11 +700,15 @@ export function VoiceMode({
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         console.log('[VoiceMode] 📱 Stopping MediaRecorder since AI is speaking');
+        isRestartingRef.current = true;
         try {
           mediaRecorderRef.current.stop();
         } catch (e) {
           console.error('[VoiceMode] Error stopping MediaRecorder during AI speech:', e);
         }
+        setTimeout(() => {
+          isRestartingRef.current = false;
+        }, 100);
       }
     } else if (isMobile && !isSpeaking && !isProcessing && audioContextRef.current && analyserRef.current) {
       if (audioContextRef.current.state === 'suspended') {
