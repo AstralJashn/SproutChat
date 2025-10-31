@@ -307,6 +307,8 @@ export function VoiceMode({
               return;
             }
 
+            console.log('[VoiceMode] Checking conditions - chunks:', audioChunksRef.current.length, 'isProcessing:', isProcessingTranscriptRef.current, 'hasSubmitted:', hasSubmittedTranscriptRef.current);
+
             if (audioChunksRef.current.length > 0 && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
               console.log('[VoiceMode] 🔄 Sending audio to Whisper API for transcription');
 
