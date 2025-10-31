@@ -134,13 +134,15 @@ export function VoiceMode({
       if (mediaRecorderRef.current) {
         console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
         if (mediaRecorderRef.current.state === 'inactive') {
-          if (!isRestartingRef.current) {
-            audioChunksRef.current = [];
-          }
           try {
             const chunkSize = isMobile ? 200 : 100;
             mediaRecorderRef.current.start(chunkSize);
             console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
+
+            if (isRestartingRef.current) {
+              console.log('[VoiceMode] ✅ Restart complete, resetting flag');
+              isRestartingRef.current = false;
+            }
           } catch (e) {
             console.error('[VoiceMode] ❌ Failed to start MediaRecorder:', e);
           }
@@ -290,11 +292,8 @@ export function VoiceMode({
           mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
-              if (isMobile && audioChunksRef.current.length > 100) {
-                console.log('[VoiceMode] ⚠️ Mobile: Too many chunks (>100), forcing stop');
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                  mediaRecorderRef.current.stop();
-                }
+              if (isMobile && audioChunksRef.current.length > 150) {
+                console.log('[VoiceMode] ⚠️ Mobile: Recording getting very long (>150 chunks)');
               }
             }
           };
@@ -639,8 +638,6 @@ export function VoiceMode({
       lastTranscriptRef.current = '';
       isRestartingRef.current = true;
 
-      audioChunksRef.current = [];
-
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         console.log('[VoiceMode] Stopping MediaRecorder before restart');
         try {
@@ -653,20 +650,14 @@ export function VoiceMode({
       setTimeout(() => {
         if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
           try {
-            console.log('[VoiceMode] ✅ Attempting to restart recognition and MediaRecorder...');
+            console.log('[VoiceMode] ✅ Attempting to restart recognition (MediaRecorder will auto-start in onstart)...');
+
             audioChunksRef.current = [];
 
             recognitionRef.current.start();
-
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
-              const chunkSize = isMobile ? 200 : 100;
-              mediaRecorderRef.current.start(chunkSize);
-              console.log('[VoiceMode] ✅ MediaRecorder restarted with chunk size:', chunkSize);
-            }
+            console.log('[VoiceMode] ✅ Recognition restart called, waiting for onstart handler');
 
             setIsListening(true);
-            isRestartingRef.current = false;
-            console.log('[VoiceMode] ✅ Recognition and MediaRecorder restarted successfully after response');
           } catch (err: any) {
             console.error('[VoiceMode] ❌ Error restarting recognition:', err);
             isRestartingRef.current = false;
