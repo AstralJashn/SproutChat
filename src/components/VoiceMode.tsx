@@ -627,13 +627,16 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
+    console.log('[VoiceMode] 🔍 Checking reset conditions:', {
+      isSpeaking,
+      isProcessing,
+      hasRecognition: !!recognitionRef.current,
+      isRestarting: isRestartingRef.current,
+      shouldReset: !isSpeaking && !isProcessing && recognitionRef.current && !isRestartingRef.current
+    });
+
     if (!isSpeaking && !isProcessing && recognitionRef.current && !isRestartingRef.current) {
-      console.log('[VoiceMode] 🔄 Response finished, resetting flags...', {
-        isSpeaking,
-        isProcessing,
-        isListening,
-        isRestartingRef: isRestartingRef.current
-      });
+      console.log('[VoiceMode] 🔄 Response finished, resetting flags...');
 
       isProcessingTranscriptRef.current = false;
       hasSubmittedTranscriptRef.current = false;
