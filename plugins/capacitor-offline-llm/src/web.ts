@@ -1,35 +1,41 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { OfflineLLMRuntimePlugin } from './definitions';
+import type { OfflineLLMRuntimePlugin, ModelInfo, LoadedModelInfo } from './definitions';
 
 export class OfflineLLMRuntimeWeb extends WebPlugin implements OfflineLLMRuntimePlugin {
-  async ensureModel(options: { url: string; filename: string; sha256?: string }): Promise<{ path: string }> {
-    console.log('ensureModel', options);
+  async ensureModel(): Promise<{ path: string }> {
     throw this.unimplemented('Not implemented on web.');
   }
 
-  async loadModel(options: { path: string; nCtx?: number; nThreads?: number; useMetal?: boolean }): Promise<void> {
-    console.log('loadModel', options);
+  async listDownloadedModels(): Promise<{ models: ModelInfo[] }> {
     throw this.unimplemented('Not implemented on web.');
   }
 
-  async generate(options: {
-    prompt: string;
-    maxTokens?: number;
-    temperature?: number;
-    topP?: number;
-    topK?: number;
-    repeatPenalty?: number;
-  }): Promise<void> {
-    console.log('generate', options);
+  async deleteModel(): Promise<void> {
     throw this.unimplemented('Not implemented on web.');
   }
 
-  async stop(): Promise<void> {
+  async loadModel(): Promise<void> {
     throw this.unimplemented('Not implemented on web.');
   }
 
-  async unload(): Promise<void> {
+  async unloadModel(): Promise<void> {
+    throw this.unimplemented('Not implemented on web.');
+  }
+
+  async clearContext(): Promise<void> {
+    throw this.unimplemented('Not implemented on web.');
+  }
+
+  async generate(): Promise<void> {
+    throw this.unimplemented('Not implemented on web.');
+  }
+
+  async stopInference(): Promise<void> {
+    throw this.unimplemented('Not implemented on web.');
+  }
+
+  async getModelInfo(): Promise<LoadedModelInfo> {
     throw this.unimplemented('Not implemented on web.');
   }
 }
