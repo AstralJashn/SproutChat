@@ -3,6 +3,7 @@ import { Send, Heart, Camera, Package, Compass, CloudRain, Flame, Waves, Zap, Wi
 import { supabase } from './lib/supabase';
 import { NavigationMap } from './components/NavigationMap';
 import { VoiceMode } from './components/VoiceMode';
+import { VoiceModeMobile } from './components/VoiceModeMobile';
 import { CameraCapture } from './components/CameraCapture';
 import { PackingList } from './components/PackingList';
 import { SituationalGuide } from './components/SituationalGuide';
@@ -1309,15 +1310,26 @@ function App() {
       )}
 
       {isVoiceMode && (
-        <VoiceMode
-          onClose={handleVoiceModeClose}
-          onTranscript={handleVoiceTranscript}
-          isProcessing={isVoiceProcessing}
-          isSpeaking={isSpeaking}
-          responseAudioLevelRef={responseAudioLevelRef}
-          onInterrupt={stopCurrentAudio}
-          onStopListening={handleStopListening}
-        />
+        isMobile ? (
+          <VoiceModeMobile
+            onClose={handleVoiceModeClose}
+            onTranscript={handleVoiceTranscript}
+            isProcessing={isVoiceProcessing}
+            isSpeaking={isSpeaking}
+            responseAudioLevelRef={responseAudioLevelRef}
+            onInterrupt={stopCurrentAudio}
+          />
+        ) : (
+          <VoiceMode
+            onClose={handleVoiceModeClose}
+            onTranscript={handleVoiceTranscript}
+            isProcessing={isVoiceProcessing}
+            isSpeaking={isSpeaking}
+            responseAudioLevelRef={responseAudioLevelRef}
+            onInterrupt={stopCurrentAudio}
+            onStopListening={handleStopListening}
+          />
+        )
       )}
 
       {/* Navigation Map Modal */}
