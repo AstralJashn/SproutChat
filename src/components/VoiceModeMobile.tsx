@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { X, Mic, Brain, Volume2 } from 'lucide-react';
+import { ErrorConsole } from './ErrorConsole';
 import { WavRecorder } from '../utils/wavRecorder';
 
 interface VoiceModeMobileProps {
@@ -40,6 +41,7 @@ export function VoiceModeMobile({
   const soundDetectedRef = useRef(false);
   const lastSoundTimeRef = useRef(Date.now());
   const speechStartTimeRef = useRef(0);
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const backgroundSparks = useMemo(() => {
     return [...Array(2)].map((_, i) => ({
@@ -779,6 +781,11 @@ export function VoiceModeMobile({
           )}
         </div>
       </div>
+
+      <ErrorConsole
+        isOpen={isConsoleOpen}
+        onToggle={() => setIsConsoleOpen(!isConsoleOpen)}
+      />
     </div>
   );
 }
