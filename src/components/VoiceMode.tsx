@@ -282,11 +282,12 @@ export function VoiceMode({
       setTimeout(() => {
         if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
           console.log('[VoiceMode] Speech ended but already processing - ignoring (AI echo)');
-          setIsListening(false);
           try {
             recognition.stop();
+            setIsListening(false);
           } catch (e) {
             console.error('[VoiceMode] Error stopping recognition:', e);
+            setIsListening(false);
           }
           return;
         }
@@ -557,9 +558,9 @@ export function VoiceMode({
       isRestartingRef.current = true;
 
       setTimeout(() => {
-        if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
+        if (recognitionRef.current && !isSpeaking && !isProcessing) {
           try {
-            console.log('[VoiceMode] ✅ Attempting to restart recognition (MediaRecorder will auto-start in onstart)...');
+            console.log('[VoiceMode] ✅ Attempting to restart recognition after response...');
 
             audioChunksRef.current = [];
 
@@ -568,13 +569,17 @@ export function VoiceMode({
 
             setIsListening(true);
           } catch (err: any) {
-            console.error('[VoiceMode] ❌ Error restarting recognition:', err);
-            isRestartingRef.current = false;
+            if (err.message && err.message.includes('already started')) {
+              console.log('[VoiceMode] Recognition already running, no restart needed');
+              isRestartingRef.current = false;
+            } else {
+              console.error('[VoiceMode] ❌ Error restarting recognition:', err);
+              isRestartingRef.current = false;
+            }
           }
         } else {
           console.log('[VoiceMode] ⚠️ Skipping restart - conditions changed', {
             hasRecognition: !!recognitionRef.current,
-            isListening,
             isSpeaking,
             isProcessing
           });
