@@ -44,6 +44,7 @@ export function VoiceMode({
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const wavRecorderRef = useRef<WavRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -245,12 +246,56 @@ export function VoiceMode({
           console.log('[VoiceMode] ✅ Restart complete, resetting flag');
           isRestartingRef.current = false;
         }
-      } else if (mediaRecorderRef.current) {
-        console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
-        if (mediaRecorderRef.current.state === 'inactive') {
+      } else if (mediaRecorderRef.current || mediaStreamRef.current) {
+        if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+          if (mediaStreamRef.current && (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive')) {
+            console.log('[VoiceMode] Recreating MediaRecorder for restart');
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : MediaRecorder.isTypeSupported('audio/mp4')
+              ? 'audio/mp4'
+              : 'audio/webm';
+
+            mediaRecorderRef.current = new MediaRecorder(mediaStreamRef.current, {
+              mimeType,
+              audioBitsPerSecond: 64000
+            });
+
+            mediaRecorderRef.current.ondataavailable = (event) => {
+              if (event.data.size > 0) {
+                audioChunksRef.current.push(event.data);
+              }
+            };
+
+            mediaRecorderRef.current.onstop = async () => {
+              console.log('[VoiceMode] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
+
+              if (isRestartingRef.current) {
+                console.log('[VoiceMode] MediaRecorder stopped during restart - clearing chunks');
+                audioChunksRef.current = [];
+                return;
+              }
+
+              if (audioChunksRef.current.length > 0 && !isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+                const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeTypeRef.current });
+                console.log('[VoiceMode] Audio blob size:', audioBlob.size);
+                audioChunksRef.current = [];
+
+                if (audioBlob.size >= 5000) {
+                  console.log('[VoiceMode] 🔄 Sending to Whisper');
+                  await sendToWhisper(audioBlob, actualMimeTypeRef.current);
+                } else {
+                  console.log('[VoiceMode] Audio too small, skipping');
+                  isProcessingTranscriptRef.current = false;
+                  hasSubmittedTranscriptRef.current = false;
+                }
+              }
+            };
+          }
+
           try {
             const chunkSize = 100;
-            mediaRecorderRef.current.start(chunkSize);
+            mediaRecorderRef.current!.start(chunkSize);
             console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
 
             if (isRestartingRef.current) {
@@ -381,6 +426,7 @@ export function VoiceMode({
     navigator.mediaDevices.getUserMedia(audioConstraints)
       .then(async (stream) => {
         console.log('[VoiceMode] ✓ Microphone permission granted');
+        mediaStreamRef.current = stream;
 
         try {
           if (isMobile) {
