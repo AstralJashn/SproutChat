@@ -20,6 +20,18 @@ if [ -n "$LLAMA_SO_URL" ]; then
   mkdir -p "$ANDROID_DIR"
   echo "Downloading Android libllama.so from $LLAMA_SO_URL..."
   curl -L -o "$ANDROID_DIR/libllama.so" "$LLAMA_SO_URL"
+
+  if [ -n "$LLAMA_SO_SHA256" ]; then
+    echo "Verifying SHA256 checksum..."
+    if command -v sha256sum &> /dev/null; then
+      echo "$LLAMA_SO_SHA256  $ANDROID_DIR/libllama.so" | sha256sum -c -
+    elif command -v shasum &> /dev/null; then
+      echo "$LLAMA_SO_SHA256  $ANDROID_DIR/libllama.so" | shasum -a 256 -c -
+    else
+      echo "Warning: No SHA256 tool found, skipping checksum verification"
+    fi
+  fi
+
   echo "Android native binary downloaded to $ANDROID_DIR/libllama.so"
 fi
 
@@ -28,6 +40,18 @@ if [ -n "$LLAMA_A_URL" ]; then
   mkdir -p "$IOS_DIR"
   echo "Downloading iOS libllama.a from $LLAMA_A_URL..."
   curl -L -o "$IOS_DIR/libllama.a" "$LLAMA_A_URL"
+
+  if [ -n "$LLAMA_A_SHA256" ]; then
+    echo "Verifying SHA256 checksum..."
+    if command -v sha256sum &> /dev/null; then
+      echo "$LLAMA_A_SHA256  $IOS_DIR/libllama.a" | sha256sum -c -
+    elif command -v shasum &> /dev/null; then
+      echo "$LLAMA_A_SHA256  $IOS_DIR/libllama.a" | shasum -a 256 -c -
+    else
+      echo "Warning: No SHA256 tool found, skipping checksum verification"
+    fi
+  fi
+
   echo "iOS native binary downloaded to $IOS_DIR/libllama.a"
 fi
 

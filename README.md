@@ -6,28 +6,52 @@ SproutChat includes optional offline LLM inference powered by llama.cpp as a hea
 
 ### Enabling Offline Mode
 
+**Prerequisites:**
+- Prebuilt llama.cpp binaries for Android (`.so`) and iOS (`.a`)
+- Hosted at accessible URLs
+
+**Setup Steps:**
+
 1. Set the environment flag in `.env`:
 
 ```bash
 VITE_OFFLINE_LLM=1
 ```
 
-2. Set environment variables for prebuilt llama.cpp binaries:
+2. **REQUIRED:** Set environment variables for prebuilt llama.cpp binaries before running `npm install`:
 
 ```bash
 export LLAMA_SO_URL="https://your-release-url/libllama.so"
 export LLAMA_A_URL="https://your-release-url/libllama.a"
+
+# Optional: SHA256 checksums for integrity verification
+export LLAMA_SO_SHA256="abc123..."
+export LLAMA_A_SHA256="def456..."
 ```
 
-3. Install dependencies and sync to native platforms:
+3. Install dependencies (this automatically downloads binaries via postinstall hook):
 
 ```bash
 npm install
+```
+
+4. Sync to native platforms:
+
+```bash
 npm run cap:sync:android  # For Android
 npm run cap:sync:ios      # For iOS
 ```
 
-The `postinstall` script will automatically download the native binaries to the correct locations in `plugins/capacitor-offline-llm/`.
+5. Build and run on device:
+
+```bash
+npm run android  # Opens Android Studio
+npm run ios      # Opens Xcode
+```
+
+The `postinstall` script (`scripts/fetch-llama.sh`) automatically downloads the native binaries to:
+- Android: `plugins/capacitor-offline-llm/android/src/main/jniLibs/arm64-v8a/libllama.so`
+- iOS: `plugins/capacitor-offline-llm/ios/llama/lib/arm64/libllama.a`
 
 ### Headless API
 
@@ -65,6 +89,32 @@ await generate(
 await stop();
 await unload();
 ```
+
+### Testing Offline Runtime
+
+A headless test script is provided at `scripts/dev-offline.ts` to verify offline functionality:
+
+```bash
+# Note: This script is for reference only
+# Actual testing must be done on a physical Android/iOS device
+# The script demonstrates the API usage pattern
+```
+
+**On-Device Testing:**
+
+1. Build and deploy to a physical device (not emulator)
+2. Enable airplane mode
+3. Run the app and trigger offline inference
+4. Verify:
+   - Tokens stream via `generationProgress` event
+   - No network requests occur during generation
+   - Inference completes successfully offline
+
+**Expected Behavior:**
+- Model loads from local storage
+- Token generation streams in real-time
+- Works completely offline (airplane mode)
+- Performance varies by device (typical: 5-20 tokens/sec on mobile)
 
 ### Native Dependencies
 
