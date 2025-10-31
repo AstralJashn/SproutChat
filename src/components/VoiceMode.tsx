@@ -79,7 +79,7 @@ export function VoiceMode({
   }, [isMobile]);
 
   const stopRecording = async () => {
-    if (isMobile && wavRecorderRef.current) {
+    if (wavRecorderRef.current) {
       try {
         const wavBlob = wavRecorderRef.current.stop();
         console.log('[VoiceMode] WAV recorder stopped, blob size:', wavBlob.size);
@@ -102,12 +102,6 @@ export function VoiceMode({
         }
       } catch (e) {
         console.error('[VoiceMode] Error stopping WAV recorder:', e);
-      }
-    } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch (e) {
-        console.error('[VoiceMode] Error stopping MediaRecorder:', e);
       }
     }
   };
