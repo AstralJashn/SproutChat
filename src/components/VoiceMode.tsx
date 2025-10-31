@@ -273,14 +273,24 @@ export function VoiceMode({
         console.log('[VoiceMode] ✓ Microphone permission granted');
 
         try {
-          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-            ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/mp4')
-            ? 'audio/mp4'
-            : 'audio/webm';
+          let mimeType: string;
+
+          if (isMobile) {
+            mimeType = MediaRecorder.isTypeSupported('audio/mp4')
+              ? 'audio/mp4'
+              : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : 'audio/webm';
+          } else {
+            mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+              ? 'audio/webm;codecs=opus'
+              : MediaRecorder.isTypeSupported('audio/mp4')
+              ? 'audio/mp4'
+              : 'audio/webm';
+          }
 
           actualMimeTypeRef.current = mimeType;
-          console.log('[VoiceMode] Using audio format:', mimeType);
+          console.log('[VoiceMode] Using audio format:', mimeType, '(mobile:', isMobile, ')');
 
           const bitrate = isMobile ? 32000 : 64000;
 
