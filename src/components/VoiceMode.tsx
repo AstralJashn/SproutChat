@@ -627,8 +627,8 @@ export function VoiceMode({
   }, [onTranscript, onClose, onStopListening]);
 
   useEffect(() => {
-    if (!isSpeaking && !isProcessing && recognitionRef.current && !isListening && !isRestartingRef.current) {
-      console.log('[VoiceMode] 🔄 Response finished, preparing to restart recognition...', {
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isRestartingRef.current) {
+      console.log('[VoiceMode] 🔄 Response finished, resetting flags...', {
         isSpeaking,
         isProcessing,
         isListening,
@@ -637,8 +637,8 @@ export function VoiceMode({
 
       isProcessingTranscriptRef.current = false;
       hasSubmittedTranscriptRef.current = false;
-      isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
+      console.log('[VoiceMode] ✅ Flags reset - ready for next recording');
       isRestartingRef.current = true;
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
