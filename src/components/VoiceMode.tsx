@@ -676,7 +676,7 @@ export function VoiceMode({
         }
       }, isMobile ? 500 : 800);
     }
-  }, [isSpeaking, isProcessing, isListening]);
+  }, [isSpeaking, isProcessing]);
 
   useEffect(() => {
     if (isProcessing && isListening) {
