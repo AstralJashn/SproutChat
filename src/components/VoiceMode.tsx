@@ -134,7 +134,9 @@ export function VoiceMode({
       if (mediaRecorderRef.current) {
         console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
         if (mediaRecorderRef.current.state === 'inactive') {
-          audioChunksRef.current = [];
+          if (!isRestartingRef.current) {
+            audioChunksRef.current = [];
+          }
           try {
             const chunkSize = isMobile ? 200 : 100;
             mediaRecorderRef.current.start(chunkSize);
@@ -289,7 +291,10 @@ export function VoiceMode({
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
               if (isMobile && audioChunksRef.current.length > 100) {
-                console.log('[VoiceMode] ⚠️ Mobile: Recording getting very long (>100 chunks)');
+                console.log('[VoiceMode] ⚠️ Mobile: Too many chunks (>100), forcing stop');
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                  mediaRecorderRef.current.stop();
+                }
               }
             }
           };
@@ -298,7 +303,8 @@ export function VoiceMode({
             console.log('[VoiceMode] MediaRecorder stopped, total chunks:', audioChunksRef.current.length);
 
             if (isRestartingRef.current) {
-              console.log('[VoiceMode] MediaRecorder stopped during restart - skipping processing');
+              console.log('[VoiceMode] MediaRecorder stopped during restart - clearing chunks and skipping');
+              audioChunksRef.current = [];
               return;
             }
 
@@ -636,19 +642,26 @@ export function VoiceMode({
       audioChunksRef.current = [];
 
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        console.log('[VoiceMode] Stopping MediaRecorder before restart (chunks already cleared)');
-        mediaRecorderRef.current.stop();
+        console.log('[VoiceMode] Stopping MediaRecorder before restart');
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.error('[VoiceMode] Error stopping MediaRecorder:', e);
+        }
       }
 
       setTimeout(() => {
         if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
           try {
             console.log('[VoiceMode] ✅ Attempting to restart recognition and MediaRecorder...');
+            audioChunksRef.current = [];
+
             recognitionRef.current.start();
 
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'inactive') {
-              mediaRecorderRef.current.start();
-              console.log('[VoiceMode] ✅ MediaRecorder restarted');
+              const chunkSize = isMobile ? 200 : 100;
+              mediaRecorderRef.current.start(chunkSize);
+              console.log('[VoiceMode] ✅ MediaRecorder restarted with chunk size:', chunkSize);
             }
 
             setIsListening(true);
@@ -667,7 +680,7 @@ export function VoiceMode({
           });
           isRestartingRef.current = false;
         }
-      }, isMobile ? 300 : 800);
+      }, isMobile ? 500 : 800);
     }
   }, [isSpeaking, isProcessing, isListening]);
 
