@@ -6,11 +6,28 @@ SproutChat includes optional offline LLM inference powered by llama.cpp as a hea
 
 ### Enabling Offline Mode
 
-Set the environment flag in `.env`:
+1. Set the environment flag in `.env`:
 
 ```bash
 VITE_OFFLINE_LLM=1
 ```
+
+2. Set environment variables for prebuilt llama.cpp binaries:
+
+```bash
+export LLAMA_SO_URL="https://your-release-url/libllama.so"
+export LLAMA_A_URL="https://your-release-url/libllama.a"
+```
+
+3. Install dependencies and sync to native platforms:
+
+```bash
+npm install
+npm run cap:sync:android  # For Android
+npm run cap:sync:ios      # For iOS
+```
+
+The `postinstall` script will automatically download the native binaries to the correct locations in `node_modules/@yourorg/capacitor-offline-llm/`.
 
 ### Headless API
 
@@ -51,41 +68,31 @@ await unload();
 
 ### Native Dependencies
 
+Native binaries are automatically downloaded during `npm install` via the `postinstall` script (`scripts/fetch-llama.sh`).
+
 **Android (arm64-v8a)**:
-- Place `libllama.so` in `plugins/capacitor-offline-llm/android/src/main/jniLibs/arm64-v8a/`
-- Headers expected at `plugins/capacitor-offline-llm/android/src/main/cpp/llama/include/llama.h`
+- Downloaded to `node_modules/@yourorg/capacitor-offline-llm/android/src/main/jniLibs/arm64-v8a/libllama.so`
 - Build uses CMake with ABI filter for arm64-v8a
 
 **iOS (arm64)**:
-- Place `libllama.a` in `plugins/capacitor-offline-llm/ios/llama/lib/arm64/`
-- Headers expected at `plugins/capacitor-offline-llm/ios/llama/include/llama.h`
+- Downloaded to `node_modules/@yourorg/capacitor-offline-llm/ios/llama/lib/arm64/libllama.a`
 - Podspec links Accelerate framework and optionally Metal/MetalKit
 
-### Capacitor Sync
-
-After adding native binaries:
+### Scripts
 
 ```bash
-npm run sync
-```
-
-This will:
-1. Build the web app
-2. Copy assets to native platforms
-3. Update native project files with the plugin
-
-For development:
-
-```bash
-npm run android  # Open Android Studio
-npm run ios      # Open Xcode
+npm install              # Installs deps + runs postinstall to fetch binaries
+npm run cap:sync:android # Sync to Android platform
+npm run cap:sync:ios     # Sync to iOS platform
+npm run android          # Build + sync + open Android Studio
+npm run ios              # Build + sync + open Xcode
 ```
 
 ### Architecture
 
-- **Plugin**: `plugins/capacitor-offline-llm/` - Capacitor plugin with TypeScript bridge + Android/iOS native code
+- **Plugin**: `@yourorg/capacitor-offline-llm` (npm package) - Capacitor plugin with TypeScript bridge + Android/iOS native code
 - **Service**: `src/offlineRuntime.ts` - Headless facade with model management and generation API
 - **Flag**: `src/runtimeMode.ts` - Feature flag gated by `VITE_OFFLINE_LLM`
-- **Injection**: `src/hooks/useOfflineInjection.ts` - Optional wrapper to redirect network calls to offline runtime (not imported in UI)
+- **Fetch Script**: `scripts/fetch-llama.sh` - Downloads prebuilt llama.cpp binaries on install
 
 No UI components are modified. The runtime is available purely as a programmatic API for internal use or testing.

@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
-import { OfflineLLMRuntime } from 'capacitor-offline-llm';
-import type { ModelInfo, LoadedModelInfo } from 'capacitor-offline-llm';
+import { OfflineLLMRuntime } from '@yourorg/capacitor-offline-llm';
+import type { ModelInfo, LoadedModelInfo } from '@yourorg/capacitor-offline-llm';
 
 let progressListener: any = null;
 let completeListener: any = null;
