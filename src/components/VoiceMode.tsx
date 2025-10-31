@@ -392,12 +392,6 @@ export function VoiceMode({
                       onTranscript(text);
                       setTranscript('');
                       lastTranscriptRef.current = '';
-
-                      setTimeout(() => {
-                        isProcessingTranscriptRef.current = false;
-                        hasSubmittedTranscriptRef.current = false;
-                        console.log('[VoiceMode] ✅ Flags reset - ready for next recording');
-                      }, 1000);
                     }
                   } else {
                     console.log('[VoiceMode] Whisper returned empty transcript');
@@ -641,6 +635,7 @@ export function VoiceMode({
         isRestartingRef: isRestartingRef.current
       });
 
+      isProcessingTranscriptRef.current = false;
       hasSubmittedTranscriptRef.current = false;
       isProcessingTranscriptRef.current = false;
       lastTranscriptRef.current = '';
