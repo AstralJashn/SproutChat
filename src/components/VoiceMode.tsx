@@ -280,6 +280,16 @@ export function VoiceMode({
       if (!isMobile) console.log('[VoiceMode] 🗣️ Speech ended');
 
       setTimeout(() => {
+        if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
+          console.log('[VoiceMode] Speech ended but already processing - ignoring');
+          try {
+            recognition.stop();
+          } catch (e) {
+            console.error('[VoiceMode] Error stopping recognition:', e);
+          }
+          return;
+        }
+
         console.log('[VoiceMode] Speech ended - stopping recording to send to Whisper');
         stopRecording();
         console.log('[VoiceMode] Recording stopped, will send to Whisper');
