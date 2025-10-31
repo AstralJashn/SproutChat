@@ -35,7 +35,21 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('[STT] Audio file received:', audioFile.size, 'bytes');
+    console.log('[STT] Audio file received:', audioFile.size, 'bytes, type:', audioFile.type);
+
+    const arrayBuffer = await audioFile.arrayBuffer();
+
+    const fileName = audioFile.type.includes('mp4') ? 'audio.m4a' :
+                     audioFile.type.includes('webm') ? 'audio.webm' :
+                     'audio.wav';
+
+    const mimeType = audioFile.type.includes('mp4') ? 'audio/mp4' :
+                     audioFile.type.includes('webm') ? 'audio/webm' :
+                     'audio/wav';
+
+    const processedFile = new File([arrayBuffer], fileName, { type: mimeType });
+
+    console.log('[STT] Prepared file:', fileName, 'type:', mimeType, 'size:', processedFile.size);
 
     const { data: apiKeyData, error: apiKeyError } = await supabase
       .from('api_keys')
@@ -60,7 +74,7 @@ Deno.serve(async (req: Request) => {
     const groqApiKey = apiKeyData.api_key;
 
     const groqFormData = new FormData();
-    groqFormData.append('file', audioFile);
+    groqFormData.append('file', processedFile);
     groqFormData.append('model', model as string);
     groqFormData.append('language', language as string);
     groqFormData.append('temperature', '0.0');
