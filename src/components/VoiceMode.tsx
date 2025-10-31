@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { X, Mic, Brain, Volume2 } from 'lucide-react';
 import { ErrorConsole } from './ErrorConsole';
+import { WavRecorder } from '../utils/wavRecorder';
 
 interface VoiceModeProps {
   onClose: () => void;
@@ -42,6 +43,7 @@ export function VoiceMode({
   const isRestartingRef = useRef(false);
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const wavRecorderRef = useRef<WavRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -74,6 +76,112 @@ export function VoiceMode({
       driftX: `${(Math.random() - 0.5) * 80}px`,
     }));
   }, [isMobile]);
+
+  const stopRecording = async () => {
+    if (isMobile && wavRecorderRef.current) {
+      try {
+        const wavBlob = wavRecorderRef.current.stop();
+        console.log('[VoiceMode] WAV recorder stopped, blob size:', wavBlob.size);
+
+        if (isRestartingRef.current) {
+          console.log('[VoiceMode] WAV recorder stopped during restart - skipping');
+          return;
+        }
+
+        if (wavBlob.size < 5000) {
+          console.log('[VoiceMode] WAV audio too small (<5KB), skipping Whisper');
+          isProcessingTranscriptRef.current = false;
+          hasSubmittedTranscriptRef.current = false;
+          return;
+        }
+
+        if (!isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+          console.log('[VoiceMode] 🔄 Sending WAV audio to Whisper API for transcription');
+          await sendToWhisper(wavBlob, 'audio/wav');
+        }
+      } catch (e) {
+        console.error('[VoiceMode] Error stopping WAV recorder:', e);
+      }
+    } else if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.error('[VoiceMode] Error stopping MediaRecorder:', e);
+      }
+    }
+  };
+
+  const sendToWhisper = async (audioBlob: Blob, mimeType: string) => {
+    try {
+      const fileExtension = mimeType.includes('mp4') ? 'audio.mp4' :
+                           mimeType.includes('webm') ? 'audio.webm' : 'audio.wav';
+
+      const formData = new FormData();
+      formData.append('file', audioBlob, fileExtension);
+      formData.append('model', 'whisper-large-v3');
+      formData.append('language', 'en');
+
+      console.log('[VoiceMode] FormData created, file size:', audioBlob.size, 'type:', mimeType);
+
+      if (abortControllerRef.current) {
+        console.log('[VoiceMode] Aborting previous Whisper request');
+        abortControllerRef.current.abort();
+      }
+
+      abortControllerRef.current = new AbortController();
+      const timeoutId = setTimeout(() => {
+        if (abortControllerRef.current) {
+          console.log('[VoiceMode] Whisper request timeout, aborting');
+          abortControllerRef.current.abort();
+        }
+      }, isMobile ? 15000 : 20000);
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/speech-to-text`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: formData,
+        signal: abortControllerRef.current.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const result = await response.json();
+        const transcript = result.text?.trim();
+
+        if (transcript) {
+          console.log('[VoiceMode] ✅ Whisper transcription:', transcript);
+          isProcessingTranscriptRef.current = true;
+          hasSubmittedTranscriptRef.current = true;
+          onTranscript(transcript);
+        } else {
+          console.log('[VoiceMode] Empty Whisper transcription');
+          isProcessingTranscriptRef.current = false;
+          hasSubmittedTranscriptRef.current = false;
+        }
+      } else {
+        console.error('[VoiceMode] Whisper API error:', response.status);
+        const errorText = await response.text();
+        console.error('[VoiceMode] Whisper error details:', errorText);
+
+        isProcessingTranscriptRef.current = false;
+        hasSubmittedTranscriptRef.current = false;
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('[VoiceMode] Whisper request aborted');
+        return;
+      }
+      console.error('[VoiceMode] Whisper error:', err);
+      isProcessingTranscriptRef.current = false;
+      hasSubmittedTranscriptRef.current = false;
+    }
+  };
 
   const backgroundHeartbeats = useMemo(() => {
     const count = isMobile ? 0 : 1;
@@ -127,15 +235,21 @@ export function VoiceMode({
       });
     }
 
-    recognition.onstart = () => {
+    recognition.onstart = async () => {
       console.log('[VoiceMode] ✓ Recognition started successfully');
       setIsListening(true);
 
-      if (mediaRecorderRef.current) {
+      if (isMobile && wavRecorderRef.current) {
+        console.log('[VoiceMode] WAV recorder already initialized');
+        if (isRestartingRef.current) {
+          console.log('[VoiceMode] ✅ Restart complete, resetting flag');
+          isRestartingRef.current = false;
+        }
+      } else if (mediaRecorderRef.current) {
         console.log('[VoiceMode] MediaRecorder state:', mediaRecorderRef.current.state);
         if (mediaRecorderRef.current.state === 'inactive') {
           try {
-            const chunkSize = isMobile ? 200 : 100;
+            const chunkSize = 100;
             mediaRecorderRef.current.start(chunkSize);
             console.log('[VoiceMode] ✅ MediaRecorder started with', chunkSize, 'ms chunks');
 
@@ -150,7 +264,7 @@ export function VoiceMode({
           console.log('[VoiceMode] ⚠️ MediaRecorder already active, state:', mediaRecorderRef.current.state);
         }
       } else {
-        console.error('[VoiceMode] ❌ MediaRecorder ref is null!');
+        console.error('[VoiceMode] ❌ No recorder available!');
       }
 
       if (isMobile && silenceTimerRef.current) {
@@ -160,10 +274,9 @@ export function VoiceMode({
       if (isMobile) {
         console.log('[VoiceMode] 📱 Setting 8 second safety timeout on mobile');
         silenceTimerRef.current = setTimeout(() => {
-          console.log('[VoiceMode] ⏰ Mobile safety timeout triggered - forcing MediaRecorder stop');
-          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-          } else if (recognitionRef.current) {
+          console.log('[VoiceMode] ⏰ Mobile safety timeout triggered - forcing recording stop');
+          stopRecording();
+          if (recognitionRef.current) {
             try {
               recognitionRef.current.stop();
             } catch (e) {
@@ -190,12 +303,9 @@ export function VoiceMode({
       if (!isMobile) console.log('[VoiceMode] 🗣️ Speech ended');
 
       setTimeout(() => {
-        console.log('[VoiceMode] Speech ended - stopping MediaRecorder to send to Whisper');
-
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-          console.log('[VoiceMode] MediaRecorder stopped, will send to Whisper');
-        }
+        console.log('[VoiceMode] Speech ended - stopping recording to send to Whisper');
+        stopRecording();
+        console.log('[VoiceMode] Recording stopped, will send to Whisper');
 
         try {
           recognition.stop();
@@ -269,37 +379,36 @@ export function VoiceMode({
         };
 
     navigator.mediaDevices.getUserMedia(audioConstraints)
-      .then((stream) => {
+      .then(async (stream) => {
         console.log('[VoiceMode] ✓ Microphone permission granted');
 
         try {
-          let mimeType: string;
-
           if (isMobile) {
-            mimeType = MediaRecorder.isTypeSupported('audio/mp4')
-              ? 'audio/mp4'
-              : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-              ? 'audio/webm;codecs=opus'
-              : 'audio/webm';
+            console.log('[VoiceMode] Using WAV recorder for mobile');
+            actualMimeTypeRef.current = 'audio/wav';
+            wavRecorderRef.current = new WavRecorder();
+            await wavRecorderRef.current.start(stream);
+            console.log('[VoiceMode] WAV recorder initialized');
           } else {
-            mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
               ? 'audio/webm;codecs=opus'
               : MediaRecorder.isTypeSupported('audio/mp4')
               ? 'audio/mp4'
               : 'audio/webm';
+
+            actualMimeTypeRef.current = mimeType;
+            console.log('[VoiceMode] Using MediaRecorder format:', mimeType);
+
+            const bitrate = 64000;
+
+            mediaRecorderRef.current = new MediaRecorder(stream, {
+              mimeType,
+              audioBitsPerSecond: bitrate
+            });
           }
 
-          actualMimeTypeRef.current = mimeType;
-          console.log('[VoiceMode] Using audio format:', mimeType, '(mobile:', isMobile, ')');
-
-          const bitrate = isMobile ? 32000 : 64000;
-
-          mediaRecorderRef.current = new MediaRecorder(stream, {
-            mimeType,
-            audioBitsPerSecond: bitrate
-          });
-
-          mediaRecorderRef.current.ondataavailable = (event) => {
+          if (mediaRecorderRef.current) {
+            mediaRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
               audioChunksRef.current.push(event.data);
               if (isMobile && audioChunksRef.current.length > 150) {
@@ -327,17 +436,10 @@ export function VoiceMode({
               console.log('[VoiceMode] Audio blob size:', audioBlob.size, 'bytes, format:', actualMimeType);
               audioChunksRef.current = [];
 
-              if (audioBlob.size < 100) {
-                console.log('[VoiceMode] Audio blob too small, skipping Whisper');
-                setTimeout(() => {
-                  if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-                    try {
-                      recognitionRef.current.start();
-                    } catch (e) {
-                      console.log('[VoiceMode] Recognition already running');
-                    }
-                  }
-                }, 500);
+              if (audioBlob.size < 5000) {
+                console.log('[VoiceMode] Audio blob too small (<5KB), skipping Whisper');
+                isProcessingTranscriptRef.current = false;
+                hasSubmittedTranscriptRef.current = false;
                 return;
               }
 
@@ -450,9 +552,10 @@ export function VoiceMode({
             }
           };
 
-          console.log('[VoiceMode] MediaRecorder initialized');
+            console.log('[VoiceMode] MediaRecorder initialized');
+          }
         } catch (err) {
-          console.error('[VoiceMode] Failed to initialize MediaRecorder:', err);
+          console.error('[VoiceMode] Failed to initialize recorder:', err);
         }
 
         const sampleRate = isMobile ? 16000 : 24000;
