@@ -698,6 +698,14 @@ export function VoiceMode({
         console.log('[VoiceMode] 📱 Suspending audio context during speech on mobile');
         audioContextRef.current.suspend();
       }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        console.log('[VoiceMode] 📱 Stopping MediaRecorder since AI is speaking');
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.error('[VoiceMode] Error stopping MediaRecorder during AI speech:', e);
+        }
+      }
     } else if (isMobile && !isSpeaking && !isProcessing && audioContextRef.current && analyserRef.current) {
       if (audioContextRef.current.state === 'suspended') {
         console.log('[VoiceMode] 📱 Resuming audio context on mobile');
