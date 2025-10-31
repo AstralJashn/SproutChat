@@ -281,7 +281,8 @@ export function VoiceMode({
 
       setTimeout(() => {
         if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
-          console.log('[VoiceMode] Speech ended but already processing - ignoring');
+          console.log('[VoiceMode] Speech ended but already processing - ignoring (AI echo)');
+          setIsListening(false);
           try {
             recognition.stop();
           } catch (e) {
