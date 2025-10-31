@@ -456,30 +456,6 @@ export function VoiceMode({
             }
           }
 
-          const minSpeechDuration = isMobile ? 300 : 600;
-          const minSilenceDuration = isMobile ? 500 : 1000;
-
-          if (speechDuration > minSpeechDuration && silenceDuration > minSilenceDuration) {
-            if (mediaRecorderRef.current?.state === 'recording') {
-              if (!isMobile) {
-                console.log('[VoiceMode] 🔇 Silence detected! Speech duration:', speechDuration, 'Silence duration:', silenceDuration);
-                console.log('[VoiceMode] Stopping MediaRecorder for Whisper fallback');
-              }
-              speechStartTime = 0;
-              mediaRecorderRef.current.stop();
-            } else if (recognitionRef.current && !isProcessingTranscriptRef.current) {
-              if (!isMobile) {
-                console.log('[VoiceMode] 🔇 Silence detected but MediaRecorder not recording');
-                console.log('[VoiceMode] Stopping recognition to trigger processing');
-              }
-              speechStartTime = 0;
-              try {
-                recognitionRef.current.stop();
-              } catch (e) {
-                console.error('[VoiceMode] Error stopping recognition:', e);
-              }
-            }
-          }
         };
 
         if (isMobile) {
