@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { X, Mic, Brain, Volume2 } from 'lucide-react';
+import { WavRecorder } from '../utils/wavRecorder';
 
 interface VoiceModeMobileProps {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface VoiceModeMobileProps {
   isSpeaking: boolean;
   responseAudioLevelRef: React.MutableRefObject<number>;
   onInterrupt: () => void;
+  onStopListening: () => void;
 }
 
 export function VoiceModeMobile({
@@ -17,20 +19,27 @@ export function VoiceModeMobile({
   isSpeaking,
   responseAudioLevelRef,
   onInterrupt,
+  onStopListening
 }: VoiceModeMobileProps) {
-  const [isRecording, setIsRecording] = useState(false);
+  const [isListening, setIsListening] = useState(true);
   const [micAudioLevel, setMicAudioLevel] = useState(0);
   const micAudioLevelRef = useRef(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const heartRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const isProcessingTranscriptRef = useRef(false);
+  const hasSubmittedTranscriptRef = useRef(false);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isRestartingRef = useRef(false);
+  const wavRecorderRef = useRef<WavRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastUpdateTimeRef = useRef(Date.now());
-  const isSubmittingRef = useRef(false);
+  const soundDetectedRef = useRef(false);
+  const lastSoundTimeRef = useRef(Date.now());
+  const speechStartTimeRef = useRef(0);
 
   const backgroundSparks = useMemo(() => {
     return [...Array(2)].map((_, i) => ({
@@ -44,149 +53,43 @@ export function VoiceModeMobile({
     }));
   }, []);
 
-  const startRecording = async () => {
-    try {
-      console.log('[VoiceModeMobile] Starting recording...');
+  const stopRecording = async () => {
+    if (wavRecorderRef.current) {
+      try {
+        const wavBlob = wavRecorderRef.current.stop();
+        console.log('[VoiceModeMobile] WAV recorder stopped, blob size:', wavBlob.size);
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000,
-          channelCount: 1
-        }
-      });
-
-      mediaStreamRef.current = stream;
-      audioChunksRef.current = [];
-
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-        ? 'audio/mp4'
-        : 'audio/webm';
-
-      console.log('[VoiceModeMobile] Using MIME type:', mimeType);
-
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-          console.log('[VoiceModeMobile] Audio chunk received:', event.data.size, 'bytes');
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        console.log('[VoiceModeMobile] MediaRecorder stopped, chunks:', audioChunksRef.current.length);
-
-        if (isSubmittingRef.current) {
-          console.log('[VoiceModeMobile] Already submitting, skipping...');
+        if (isRestartingRef.current) {
+          console.log('[VoiceModeMobile] Stopped during restart - skipping');
           return;
         }
 
-        if (audioChunksRef.current.length === 0) {
-          console.log('[VoiceModeMobile] No audio chunks captured');
+        if (wavBlob.size < 5000) {
+          console.log('[VoiceModeMobile] Audio too small, skipping');
+          isProcessingTranscriptRef.current = false;
+          hasSubmittedTranscriptRef.current = false;
           return;
         }
 
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        console.log('[VoiceModeMobile] Audio blob created:', audioBlob.size, 'bytes');
-
-        if (audioBlob.size < 1000) {
-          console.log('[VoiceModeMobile] Audio too small, skipping...');
-          return;
+        if (!isProcessingTranscriptRef.current && !hasSubmittedTranscriptRef.current) {
+          console.log('[VoiceModeMobile] Sending to Whisper...');
+          await sendToWhisper(wavBlob, 'audio/wav');
         }
-
-        isSubmittingRef.current = true;
-        await sendToWhisper(audioBlob, mimeType);
-      };
-
-      audioContextRef.current = new AudioContext({
-        latencyHint: 'interactive',
-        sampleRate: 16000
-      });
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      source.connect(analyserRef.current);
-
-      analyserRef.current.fftSize = 64;
-      analyserRef.current.smoothingTimeConstant = 0.5;
-
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-
-      const updateAudioLevel = () => {
-        if (!analyserRef.current || !audioContextRef.current) return;
-
-        if (isProcessing || isSpeaking) return;
-
-        analyserRef.current.getByteFrequencyData(dataArray);
-
-        let sum = 0;
-        let count = 0;
-        for (let i = 1; i < 5; i++) {
-          sum += dataArray[i];
-          count++;
-        }
-
-        const avgLevel = sum / count;
-        const weightedLevel = avgLevel * 1.5;
-        const clampedLevel = Math.min(100, weightedLevel);
-
-        const now = Date.now();
-        if (Math.abs(micAudioLevelRef.current - clampedLevel) > 20 && (now - lastUpdateTimeRef.current) > 150) {
-          micAudioLevelRef.current = clampedLevel;
-          lastUpdateTimeRef.current = now;
-          setMicAudioLevel(clampedLevel);
-        } else {
-          micAudioLevelRef.current = clampedLevel;
-        }
-      };
-
-      audioIntervalRef.current = setInterval(updateAudioLevel, 350);
-
-      mediaRecorder.start(1000);
-      setIsRecording(true);
-      console.log('[VoiceModeMobile] Recording started successfully');
-
-    } catch (error) {
-      console.error('[VoiceModeMobile] Error starting recording:', error);
-      alert('Could not access microphone. Please check permissions.');
-      onClose();
+      } catch (e) {
+        console.error('[VoiceModeMobile] Error stopping WAV recorder:', e);
+      }
     }
-  };
-
-  const stopRecording = () => {
-    console.log('[VoiceModeMobile] Stopping recording...');
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-
-    if (audioIntervalRef.current) {
-      clearInterval(audioIntervalRef.current);
-      audioIntervalRef.current = null;
-    }
-
-    setIsRecording(false);
   };
 
   const sendToWhisper = async (audioBlob: Blob, mimeType: string) => {
     try {
-      const fileExtension = mimeType.includes('mp4') ? 'audio.mp4' :
-                           mimeType.includes('webm') ? 'audio.webm' : 'audio.wav';
-
+      const fileExtension = 'audio.wav';
       const formData = new FormData();
       formData.append('file', audioBlob, fileExtension);
       formData.append('model', 'whisper-large-v3');
       formData.append('language', 'en');
 
-      console.log('[VoiceModeMobile] Sending to Whisper API...');
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      console.log('[VoiceModeMobile] Sending to Whisper, size:', audioBlob.size);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/speech-to-text`,
@@ -196,97 +99,194 @@ export function VoiceModeMobile({
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: formData,
-          signal: controller.signal
         }
       );
-
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         const result = await response.json();
         const transcript = result.text?.trim();
 
         if (transcript) {
-          console.log('[VoiceModeMobile] Got transcript:', transcript);
+          console.log('[VoiceModeMobile] Transcription:', transcript);
+          isProcessingTranscriptRef.current = true;
+          hasSubmittedTranscriptRef.current = true;
           onTranscript(transcript);
         } else {
-          console.log('[VoiceModeMobile] Empty transcript');
-          isSubmittingRef.current = false;
+          console.log('[VoiceModeMobile] Empty transcription');
+          isProcessingTranscriptRef.current = false;
+          hasSubmittedTranscriptRef.current = false;
         }
       } else {
         console.error('[VoiceModeMobile] Whisper API error:', response.status);
-        isSubmittingRef.current = false;
+        isProcessingTranscriptRef.current = false;
+        hasSubmittedTranscriptRef.current = false;
       }
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log('[VoiceModeMobile] Request timed out');
-      } else {
-        console.error('[VoiceModeMobile] Error:', err);
-      }
-      isSubmittingRef.current = false;
+      console.error('[VoiceModeMobile] Whisper error:', err);
+      isProcessingTranscriptRef.current = false;
+      hasSubmittedTranscriptRef.current = false;
     }
   };
 
   useEffect(() => {
-    startRecording();
+    console.log('[VoiceModeMobile] Initializing...');
 
-    return () => {
-      console.log('[VoiceModeMobile] Cleanup...');
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.stop();
+    if (!SpeechRecognition) {
+      console.error('[VoiceModeMobile] Speech recognition not supported');
+      alert('Speech recognition is not supported in this browser.');
+      onClose();
+      return;
+    }
+
+    let recognition;
+    try {
+      recognition = new SpeechRecognition();
+      console.log('[VoiceModeMobile] SpeechRecognition created');
+    } catch (error) {
+      console.error('[VoiceModeMobile] Failed to create SpeechRecognition:', error);
+      alert('Failed to initialize speech recognition');
+      onClose();
+      return;
+    }
+
+    recognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = async () => {
+      console.log('[VoiceModeMobile] Recognition started');
+      setIsListening(true);
+
+      if (isRestartingRef.current) {
+        console.log('[VoiceModeMobile] Restart complete');
+        isRestartingRef.current = false;
       }
 
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
       }
 
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
-
-      if (audioIntervalRef.current) {
-        clearInterval(audioIntervalRef.current);
-      }
+      console.log('[VoiceModeMobile] Setting 10 second safety timeout');
+      silenceTimerRef.current = setTimeout(() => {
+        console.log('[VoiceModeMobile] Safety timeout - forcing stop');
+        stopRecording();
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {
+            console.error('[VoiceModeMobile] Error stopping on timeout:', e);
+          }
+        }
+      }, 10000);
     };
-  }, []);
 
-  useEffect(() => {
-    if (!isSpeaking && !isProcessing && !isRecording && !isSubmittingRef.current) {
-      console.log('[VoiceModeMobile] Response finished, ready to record again');
-      isSubmittingRef.current = false;
-      audioChunksRef.current = [];
+    recognition.onspeechend = () => {
+      console.log('[VoiceModeMobile] Speech ended');
 
       setTimeout(() => {
-        if (!isRecording && !isProcessing && !isSpeaking) {
-          startRecording();
+        if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
+          console.log('[VoiceModeMobile] Already processing - ignoring');
+          setIsListening(false);
+          try {
+            recognition.stop();
+          } catch (e) {
+            console.error('[VoiceModeMobile] Error stopping:', e);
+          }
+          return;
         }
-      }, 500);
-    }
-  }, [isSpeaking, isProcessing]);
 
-  useEffect(() => {
-    if (isProcessing || isSpeaking) {
-      if (audioIntervalRef.current) {
-        clearInterval(audioIntervalRef.current);
-        audioIntervalRef.current = null;
-      }
-      if (audioContextRef.current && audioContextRef.current.state === 'running') {
-        audioContextRef.current.suspend();
-      }
-    } else if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
+        console.log('[VoiceModeMobile] Stopping recording');
+        stopRecording();
 
-      if (!audioIntervalRef.current && analyserRef.current) {
+        try {
+          recognition.stop();
+        } catch (e) {
+          console.error('[VoiceModeMobile] Error stopping after speechend:', e);
+        }
+      }, 100);
+    };
+
+    recognition.onresult = (event: any) => {
+      console.log('[VoiceModeMobile] Recognition result received');
+
+      if (isProcessingTranscriptRef.current || hasSubmittedTranscriptRef.current) {
+        console.log('[VoiceModeMobile] Already processing - ignoring result');
+        return;
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      console.log('[VoiceModeMobile] Recognition error:', event.error);
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        setIsListening(false);
+      }
+    };
+
+    recognition.onend = () => {
+      console.log('[VoiceModeMobile] Recognition ended');
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    };
+
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000,
+        channelCount: 1
+      }
+    })
+      .then(async (stream) => {
+        console.log('[VoiceModeMobile] Microphone access granted');
+        mediaStreamRef.current = stream;
+
+        try {
+          console.log('[VoiceModeMobile] Initializing WAV recorder');
+          wavRecorderRef.current = new WavRecorder();
+          await wavRecorderRef.current.start(stream);
+          console.log('[VoiceModeMobile] WAV recorder started');
+        } catch (err) {
+          console.error('[VoiceModeMobile] Failed to start WAV recorder:', err);
+        }
+
+        audioContextRef.current = new AudioContext({
+          latencyHint: 'interactive',
+          sampleRate: 16000
+        });
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        source.connect(analyserRef.current);
+
+        analyserRef.current.fftSize = 64;
+        analyserRef.current.smoothingTimeConstant = 0.5;
+        analyserRef.current.minDecibels = -90;
+        analyserRef.current.maxDecibels = -15;
+
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
 
         const updateAudioLevel = () => {
           if (!analyserRef.current || !audioContextRef.current) return;
 
+          if (isProcessing || isSpeaking) {
+            return;
+          }
+
+          if (audioContextRef.current.state === 'suspended') {
+            audioContextRef.current.resume();
+          }
+
           analyserRef.current.getByteFrequencyData(dataArray);
 
           let sum = 0;
           let count = 0;
+
           for (let i = 1; i < 5; i++) {
             sum += dataArray[i];
             count++;
@@ -297,19 +297,193 @@ export function VoiceModeMobile({
           const clampedLevel = Math.min(100, weightedLevel);
 
           const now = Date.now();
-          if (Math.abs(micAudioLevelRef.current - clampedLevel) > 20 && (now - lastUpdateTimeRef.current) > 150) {
+          const shouldUpdate = Math.abs(micAudioLevelRef.current - clampedLevel) > 20 &&
+                              (now - lastUpdateTimeRef.current) > 200;
+
+          if (shouldUpdate) {
             micAudioLevelRef.current = clampedLevel;
             lastUpdateTimeRef.current = now;
             setMicAudioLevel(clampedLevel);
           } else {
             micAudioLevelRef.current = clampedLevel;
           }
+
+          if (!soundDetectedRef.current && weightedLevel > 5) {
+            soundDetectedRef.current = true;
+            console.log('[VoiceModeMobile] Sound detected, level:', weightedLevel);
+          }
+
+          if (weightedLevel > 8) {
+            lastSoundTimeRef.current = Date.now();
+            if (speechStartTimeRef.current === 0) {
+              speechStartTimeRef.current = Date.now();
+              console.log('[VoiceModeMobile] Speech started');
+            }
+          }
+
+          const silenceDuration = Date.now() - lastSoundTimeRef.current;
+          const speechDuration = speechStartTimeRef.current > 0 ? Date.now() - speechStartTimeRef.current : 0;
+
+          if (audioContextRef.current && silenceDuration > 5000 && speechDuration === 0) {
+            if (audioContextRef.current.state === 'running') {
+              audioContextRef.current.suspend();
+            }
+          }
+        };
+
+        audioIntervalRef.current = setInterval(updateAudioLevel, 350);
+
+        console.log('[VoiceModeMobile] Starting recognition...');
+        try {
+          recognition.start();
+          setIsListening(true);
+        } catch (error) {
+          console.error('[VoiceModeMobile] Error starting recognition:', error);
+        }
+      })
+      .catch((error) => {
+        console.error('[VoiceModeMobile] Microphone access error:', error);
+      });
+
+    return () => {
+      console.log('[VoiceModeMobile] Cleanup');
+      try {
+        recognition.stop();
+      } catch (e) {
+        console.log('[VoiceModeMobile] Recognition already stopped');
+      }
+
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+      }
+
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [onTranscript, onClose, onStopListening]);
+
+  useEffect(() => {
+    console.log('[VoiceModeMobile] Checking reset conditions:', {
+      isSpeaking,
+      isProcessing,
+      hasRecognition: !!recognitionRef.current,
+      isRestarting: isRestartingRef.current
+    });
+
+    if (!isSpeaking && !isProcessing && recognitionRef.current && !isRestartingRef.current) {
+      console.log('[VoiceModeMobile] Response finished, resetting...');
+
+      isProcessingTranscriptRef.current = false;
+      hasSubmittedTranscriptRef.current = false;
+      console.log('[VoiceModeMobile] Flags reset');
+      isRestartingRef.current = true;
+
+      setTimeout(() => {
+        if (recognitionRef.current && !isListening && !isSpeaking && !isProcessing) {
+          try {
+            console.log('[VoiceModeMobile] Restarting recognition...');
+
+            if (wavRecorderRef.current && mediaStreamRef.current) {
+              wavRecorderRef.current.start(mediaStreamRef.current);
+            }
+
+            recognitionRef.current.start();
+            console.log('[VoiceModeMobile] Recognition restarted');
+            setIsListening(true);
+          } catch (err: any) {
+            console.error('[VoiceModeMobile] Error restarting:', err);
+            isRestartingRef.current = false;
+          }
+        } else {
+          console.log('[VoiceModeMobile] Skipping restart - conditions changed');
+          isRestartingRef.current = false;
+        }
+      }, 1000);
+    }
+  }, [isSpeaking, isProcessing]);
+
+  useEffect(() => {
+    if (isProcessing && isListening) {
+      console.log('[VoiceModeMobile] Processing started, stopping listening');
+      setIsListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {
+          console.error('[VoiceModeMobile] Error stopping recognition:', err);
+        }
+      }
+    }
+
+    if (isSpeaking || isProcessing) {
+      if (audioIntervalRef.current) {
+        console.log('[VoiceModeMobile] Clearing audio interval during speech');
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state === 'running') {
+        console.log('[VoiceModeMobile] Suspending audio context during speech');
+        audioContextRef.current.suspend();
+      }
+    } else if (!isSpeaking && !isProcessing && audioContextRef.current && analyserRef.current) {
+      if (audioContextRef.current.state === 'suspended') {
+        console.log('[VoiceModeMobile] Resuming audio context');
+        audioContextRef.current.resume();
+      }
+
+      if (!audioIntervalRef.current) {
+        console.log('[VoiceModeMobile] Restarting audio interval');
+
+        lastSoundTimeRef.current = Date.now();
+        speechStartTimeRef.current = 0;
+
+        const updateAudioLevel = () => {
+          if (!analyserRef.current || !audioContextRef.current) return;
+
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+          analyserRef.current.getByteFrequencyData(dataArray);
+
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > 0) {
+              sum += dataArray[i];
+            }
+          }
+
+          const avgLevel = sum / dataArray.length;
+          const weightedLevel = avgLevel * 1.5;
+          const clampedLevel = Math.min(100, weightedLevel);
+
+          const now = Date.now();
+          if (Math.abs(micAudioLevelRef.current - clampedLevel) > 20 && (now - lastUpdateTimeRef.current) > 200) {
+            micAudioLevelRef.current = clampedLevel;
+            lastUpdateTimeRef.current = now;
+            setMicAudioLevel(clampedLevel);
+          } else {
+            micAudioLevelRef.current = clampedLevel;
+          }
+
+          if (weightedLevel > 8) {
+            lastSoundTimeRef.current = Date.now();
+            if (speechStartTimeRef.current === 0) {
+              speechStartTimeRef.current = Date.now();
+            }
+          }
         };
 
         audioIntervalRef.current = setInterval(updateAudioLevel, 350);
       }
     }
-  }, [isProcessing, isSpeaking]);
+  }, [isProcessing, isListening, isSpeaking]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -324,8 +498,10 @@ export function VoiceModeMobile({
     const centerY = height / 2;
 
     let animationFrame: number;
+    const ripples: Array<{ radius: number; opacity: number }> = [];
     let lastRippleTime = 0;
-    const ripples: Array<{ radius: number; opacity: number; maxRadius: number }> = [];
+    let lastFrameTime = 0;
+    const frameInterval = 1000 / 20;
 
     const animate = (timestamp: number) => {
       if (isSpeaking) {
@@ -334,22 +510,31 @@ export function VoiceModeMobile({
         return;
       }
 
+      if (timestamp - lastFrameTime < frameInterval) {
+        animationFrame = requestAnimationFrame(animate);
+        return;
+      }
+      lastFrameTime = timestamp;
+
       ctx.clearRect(0, 0, width, height);
 
       const audioIntensity = isSpeaking
         ? Math.max(0.5, responseAudioLevelRef.current / 100)
-        : isRecording && micAudioLevel > 20
+        : isListening && micAudioLevel > 20
         ? Math.min(1, micAudioLevel / 100)
         : 0.3;
 
-      const rippleInterval = isSpeaking ? 1000 : isRecording && micAudioLevel > 25 ? 1200 : 2500;
+      const rippleInterval = isSpeaking
+        ? 1000
+        : isListening && micAudioLevel > 25
+        ? Math.max(800, 1200 - (micAudioLevel * 2))
+        : 2500;
 
-      if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isRecording && micAudioLevel > 25))) {
-        if (ripples.length < 2) {
+      if (timestamp - lastRippleTime > rippleInterval && (isSpeaking || (isListening && micAudioLevel > 25))) {
+        if (ripples.length < 1) {
           ripples.push({
             radius: 0,
-            opacity: 0.35,
-            maxRadius: 180
+            opacity: 0.35
           });
         }
         lastRippleTime = timestamp;
@@ -357,15 +542,16 @@ export function VoiceModeMobile({
 
       for (let i = ripples.length - 1; i >= 0; i--) {
         const ripple = ripples[i];
-        ripple.radius += 5;
+
+        ripple.radius += 5 * audioIntensity;
         ripple.opacity -= 0.02;
 
-        if (ripple.opacity <= 0 || ripple.radius > ripple.maxRadius) {
+        if (ripple.opacity <= 0 || ripple.radius > 180) {
           ripples.splice(i, 1);
           continue;
         }
 
-        const activeColor = (isSpeaking || isRecording);
+        const activeColor = (isSpeaking || isListening);
         ctx.strokeStyle = activeColor
           ? `rgba(16, 185, 129, ${ripple.opacity * 0.4})`
           : `rgba(156, 163, 175, ${ripple.opacity * 0.25})`;
@@ -383,7 +569,7 @@ export function VoiceModeMobile({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isRecording, micAudioLevel, responseAudioLevelRef]);
+  }, [isSpeaking, isListening, micAudioLevel, responseAudioLevelRef]);
 
   useEffect(() => {
     if (!heartRef.current) return;
@@ -391,18 +577,43 @@ export function VoiceModeMobile({
     let animationFrame: number;
     let currentScale = 1;
     let targetScale = 1;
+    let lastBeatTime = 0;
+    let frameCount = 0;
+    const frameSkip = 3;
 
-    const animateBeat = () => {
+    const animateBeat = (timestamp: number) => {
       if (!heartRef.current) return;
+
+      if (isSpeaking) {
+        if (heartRef.current.style.transform !== 'scale(1)') {
+          heartRef.current.style.transform = 'scale(1)';
+        }
+        animationFrame = requestAnimationFrame(animateBeat);
+        return;
+      }
+
+      frameCount++;
+      if (frameCount % frameSkip !== 0) {
+        animationFrame = requestAnimationFrame(animateBeat);
+        return;
+      }
 
       if (isSpeaking) {
         const intensity = Math.max(0.3, responseAudioLevelRef.current / 100);
         targetScale = 1 + intensity * 0.15;
         currentScale = currentScale * 0.7 + targetScale * 0.3;
         heartRef.current.style.transform = `scale(${currentScale})`;
-      } else if (isRecording && micAudioLevel > 15) {
+      } else if (isListening && micAudioLevel > 15) {
         const intensity = Math.min(1, micAudioLevel / 80);
-        targetScale = 1.12 + intensity * 0.3;
+        const dynamicBeatInterval = 250 - (intensity * 80);
+
+        if (timestamp - lastBeatTime > dynamicBeatInterval) {
+          targetScale = 1.12 + intensity * 0.3;
+          lastBeatTime = timestamp;
+        } else if (timestamp - lastBeatTime > dynamicBeatInterval / 2) {
+          targetScale = 1.0;
+        }
+
         currentScale = currentScale * 0.65 + targetScale * 0.35;
         heartRef.current.style.transform = `scale(${currentScale})`;
       } else {
@@ -419,12 +630,7 @@ export function VoiceModeMobile({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isSpeaking, isRecording, micAudioLevel, responseAudioLevelRef]);
-
-  const handleStopRecording = () => {
-    console.log('[VoiceModeMobile] Manual stop requested');
-    stopRecording();
-  };
+  }, [isSpeaking, isListening, micAudioLevel, responseAudioLevelRef]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -469,7 +675,7 @@ export function VoiceModeMobile({
         <img
           src="/Hello-World-earth.svg"
           alt="Earth"
-          className="w-[250px] h-[250px] opacity-25 object-contain"
+          className="w-[200px] h-[200px] opacity-25 object-contain"
         />
       </div>
 
@@ -477,21 +683,18 @@ export function VoiceModeMobile({
         <div className="relative mb-6">
           <canvas
             ref={canvasRef}
-            width={400}
-            height={400}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-75"
+            width={300}
+            height={300}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           />
 
-          <div
-            ref={heartRef}
-            className="relative z-10 transition-transform duration-150 ease-out"
-          >
+          <div ref={heartRef} className="relative z-10 transition-transform duration-150 ease-out">
             <svg
-              width="200"
-              height="200"
+              width="150"
+              height="150"
               viewBox="0 0 200 200"
               className={`w-32 h-32 ${
-                isSpeaking || isRecording ? 'drop-shadow-[0_0_20px_rgba(16,185,129,0.8)]' : 'drop-shadow-[0_0_10px_rgba(100,116,139,0.5)]'
+                isSpeaking || isListening ? 'drop-shadow-[0_0_20px_rgba(16,185,129,0.8)]' : 'drop-shadow-[0_0_10px_rgba(100,116,139,0.5)]'
               }`}
             >
               <defs>
@@ -507,43 +710,34 @@ export function VoiceModeMobile({
                   <stop offset="50%" stopColor="#10b981" stopOpacity="0.15" />
                   <stop offset="100%" stopColor="#059669" stopOpacity="0" />
                 </radialGradient>
-                <filter id="voiceHeartFilterMobile">
-                  <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-                  <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
               </defs>
 
-              <g filter="url(#voiceHeartFilterMobile)">
-                <path
-                  d="M100,170
-                     L55,125
-                     C40,110 35,95 35,80
-                     C35,55 52,40 70,40
-                     C82,40 92,47 100,57
-                     C108,47 118,40 130,40
-                     C148,40 165,55 165,80
-                     C165,95 160,110 145,125
-                     L100,170 Z"
-                  fill="url(#voiceHeartGradMobile)"
-                  strokeWidth="0"
-                />
+              <path
+                d="M100,170
+                   L55,125
+                   C40,110 35,95 35,80
+                   C35,55 52,40 70,40
+                   C82,40 92,47 100,57
+                   C108,47 118,40 130,40
+                   C148,40 165,55 165,80
+                   C165,95 160,110 145,125
+                   L100,170 Z"
+                fill="url(#voiceHeartGradMobile)"
+                strokeWidth="0"
+              />
 
-                <path
-                  d="M100,170
-                     L55,125
-                     C40,110 35,95 35,80
-                     C35,55 52,40 70,40
-                     C82,40 92,47 100,57
-                     C108,47 118,40 130,40
-                     C148,40 165,55 165,80
-                     C165,95 160,110 145,125
-                     L100,170 Z"
-                  fill="url(#voiceHeartGlowMobile)"
-                />
-              </g>
+              <path
+                d="M100,170
+                   L55,125
+                   C40,110 35,95 35,80
+                   C35,55 52,40 70,40
+                   C82,40 92,47 100,57
+                   C108,47 118,40 130,40
+                   C148,40 165,55 165,80
+                   C165,95 160,110 145,125
+                   L100,170 Z"
+                fill="url(#voiceHeartGlowMobile)"
+              />
             </svg>
           </div>
         </div>
@@ -554,11 +748,11 @@ export function VoiceModeMobile({
               <Volume2 className="w-6 h-6 text-emerald-400 animate-pulse" />
             ) : isProcessing ? (
               <Brain className="w-6 h-6 text-purple-400 animate-pulse" />
-            ) : isRecording ? (
+            ) : isListening ? (
               <Mic className="w-6 h-6 text-cyan-400 animate-pulse" />
             ) : null}
             <h3 className="text-2xl font-bold text-white tracking-tight">
-              {isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isRecording ? 'Listening' : 'Ready'}
+              {isSpeaking ? 'Speaking' : isProcessing ? 'Processing' : isListening ? 'Listening' : 'Ready'}
             </h3>
           </div>
 
@@ -567,19 +761,10 @@ export function VoiceModeMobile({
               ? 'Assistant is responding...'
               : isProcessing
               ? 'Thinking about your question...'
-              : isRecording
-              ? 'Tap "Stop" when you finish speaking'
+              : isListening
+              ? 'Speak your question now'
               : 'Initializing...'}
           </p>
-
-          {isRecording && !isProcessing && !isSpeaking && (
-            <button
-              onClick={handleStopRecording}
-              className="px-8 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-base font-bold rounded-full shadow-2xl hover:shadow-red-500/50 transition-all duration-200 active:scale-95 pointer-events-auto z-50"
-            >
-              Stop Recording
-            </button>
-          )}
 
           {isSpeaking && (
             <button
