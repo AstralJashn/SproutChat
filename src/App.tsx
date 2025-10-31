@@ -180,7 +180,7 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   }, [messages]);
 
-  const stopCurrentAudio = () => {
+  const stopCurrentAudio = useCallback(() => {
     console.log('[Audio] 🛑 STOPPING AUDIO - hasCurrentAudio:', !!currentAudioRef.current, 'isSpeaking:', isSpeakingRef.current);
 
     isSpeakingRef.current = false;
@@ -208,9 +208,9 @@ function App() {
     setIsGenerating(false);
     stopSpeechVisualization();
     console.log('[Audio] ✅ Audio stopped successfully');
-  };
+  }, []);
 
-  const handleVoiceTranscript = async (transcript: string) => {
+  const handleVoiceTranscript = useCallback(async (transcript: string) => {
     console.log('[Voice] ===== TRANSCRIPT RECEIVED =====');
     console.log('[Voice] Length:', transcript.length);
     console.log('[Voice] Text:', transcript.substring(0, 100));
@@ -237,7 +237,7 @@ function App() {
       setIsSpeaking(false);
       setTimeout(() => setIsVoiceMode(false), 2000);
     }
-  };
+  }, [isGenerating]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -977,6 +977,24 @@ function App() {
     }
   };
 
+  const handleVoiceModeClose = useCallback(() => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.src = '';
+      currentAudioRef.current = null;
+    }
+    isSpeakingRef.current = false;
+    window.speechSynthesis.cancel();
+    stopSpeechVisualization();
+    setIsVoiceMode(false);
+    setIsVoiceProcessing(false);
+    setIsSpeaking(false);
+  }, []);
+
+  const handleStopListening = useCallback(() => {
+    console.log('[App] Stop listening triggered');
+  }, []);
+
   return (
     <div className="h-screen max-h-screen flex flex-col relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       {/* Animated gradient overlay - primary movement */}
@@ -1292,27 +1310,13 @@ function App() {
 
       {isVoiceMode && (
         <VoiceMode
-          onClose={() => {
-            if (currentAudioRef.current) {
-              currentAudioRef.current.pause();
-              currentAudioRef.current.src = '';
-              currentAudioRef.current = null;
-            }
-            isSpeakingRef.current = false;
-            window.speechSynthesis.cancel();
-            stopSpeechVisualization();
-            setIsVoiceMode(false);
-            setIsVoiceProcessing(false);
-            setIsSpeaking(false);
-          }}
+          onClose={handleVoiceModeClose}
           onTranscript={handleVoiceTranscript}
           isProcessing={isVoiceProcessing}
           isSpeaking={isSpeaking}
           responseAudioLevelRef={responseAudioLevelRef}
           onInterrupt={stopCurrentAudio}
-          onStopListening={() => {
-            console.log('[App] Stop listening triggered');
-          }}
+          onStopListening={handleStopListening}
         />
       )}
 
