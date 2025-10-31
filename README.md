@@ -27,7 +27,7 @@ npm run cap:sync:android  # For Android
 npm run cap:sync:ios      # For iOS
 ```
 
-The `postinstall` script will automatically download the native binaries to the correct locations in `node_modules/@yourorg/capacitor-offline-llm/`.
+The `postinstall` script will automatically download the native binaries to the correct locations in `plugins/capacitor-offline-llm/`.
 
 ### Headless API
 
@@ -71,11 +71,11 @@ await unload();
 Native binaries are automatically downloaded during `npm install` via the `postinstall` script (`scripts/fetch-llama.sh`).
 
 **Android (arm64-v8a)**:
-- Downloaded to `node_modules/@yourorg/capacitor-offline-llm/android/src/main/jniLibs/arm64-v8a/libllama.so`
+- Downloaded to `plugins/capacitor-offline-llm/android/src/main/jniLibs/arm64-v8a/libllama.so`
 - Build uses CMake with ABI filter for arm64-v8a
 
 **iOS (arm64)**:
-- Downloaded to `node_modules/@yourorg/capacitor-offline-llm/ios/llama/lib/arm64/libllama.a`
+- Downloaded to `plugins/capacitor-offline-llm/ios/llama/lib/arm64/libllama.a`
 - Podspec links Accelerate framework and optionally Metal/MetalKit
 
 ### Scripts
@@ -90,7 +90,7 @@ npm run ios              # Build + sync + open Xcode
 
 ### Architecture
 
-- **Plugin**: `@yourorg/capacitor-offline-llm` (npm package) - Capacitor plugin with TypeScript bridge + Android/iOS native code
+- **Plugin**: `capacitor-offline-llm` (local file plugin) - Capacitor plugin with TypeScript bridge + Android/iOS native code
 - **Service**: `src/offlineRuntime.ts` - Headless facade with model management and generation API
 - **Flag**: `src/runtimeMode.ts` - Feature flag gated by `VITE_OFFLINE_LLM`
 - **Fetch Script**: `scripts/fetch-llama.sh` - Downloads prebuilt llama.cpp binaries on install

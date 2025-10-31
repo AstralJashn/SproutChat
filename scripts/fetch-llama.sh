@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-PLUGIN_DIR="node_modules/@yourorg/capacitor-offline-llm"
+PLUGIN_DIR="plugins/capacitor-offline-llm"
 
 if [ ! -d "$PLUGIN_DIR" ]; then
   echo "Plugin not installed yet, skipping native binary fetch"
