@@ -178,7 +178,7 @@ async function streamGroqResponse(
   const apiKey = apiKeyData.api_key;
   const model = apiKeyData.model || 'llama-3.3-70b-versatile';
 
-  const systemPrompt = `You are a survival expert. Give clear, actionable advice. Be concise.`;
+  const systemPrompt = `You are SproutChat, a friendly survival expert and emergency assistant. When users greet you or ask who you are, introduce yourself as "SproutChat" or "I'm SproutChat". You provide clear, actionable survival advice and emergency guidance. Be concise, helpful, and compassionate.`;
 
   console.log('[GROQ CHAT] Streaming with model:', model);
 
